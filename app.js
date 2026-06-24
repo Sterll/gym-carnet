@@ -195,6 +195,7 @@ function renderNutrition() {
   MACRO_INFO.forEach(m => { const c = el("div", "info-card"); c.innerHTML = `<h3>${m.t} <span>${m.tag}</span></h3><p>${esc(m.d)}</p>`; mi.appendChild(c); });
   const sl = $("#suppList"); sl.innerHTML = "";
   SUPPS.forEach(s => { const r = el("div", "supp"); r.innerHTML = `<div class="supp-name">${s.name}</div><div class="supp-use">${esc(s.use)}</div>`; sl.appendChild(r); });
+  renderBodyweight();
 }
 
 /* ============ SUIVI ============ */
@@ -223,7 +224,10 @@ function renderTrack() {
     const rec = entries.length ? best(entries) : null;
     const card = el("div", "track-ex");
     card.innerHTML = `
-      <div class="track-top"><div class="track-name">${esc(ex.name)}</div><div class="track-target">${ex.sets}×${ex.reps}</div></div>
+      <div class="track-top">
+        <div class="track-name">${esc(ex.name)} <span class="track-target">${ex.sets}×${ex.reps}</span></div>
+        <button class="track-rest" type="button">⏱ <b>${ex.rest}</b></button>
+      </div>
       <div class="track-stats">
         <div class="stat"><span>Dernier</span><b>${last ? `${last.w}kg × ${last.r}` : "—"}</b></div>
         <div class="stat record"><span>Record</span><b>${rec ? `${rec.w}kg × ${rec.r}` : "—"}</b></div>
@@ -258,9 +262,154 @@ function renderTrack() {
       save(store);
       renderTrack();
       flashToast(`Enregistré · ${shortOf(iso)}`);
+      startRest(ex.name, restSeconds(ex.rest)); // lance le repos automatiquement
     };
+    $(".track-rest", card).onclick = () => startRest(ex.name, restSeconds(ex.rest));
     wrap.appendChild(card);
   });
+}
+
+/* ============ TIMER DE REPOS ============ */
+function restSeconds(rest) {
+  const m = String(rest).match(/(\d+)\s*min/);
+  if (m) return parseInt(m[1], 10) * 60;
+  const s = String(rest).match(/(\d+)\s*s/);
+  return s ? parseInt(s[1], 10) : 60;
+}
+let restState = null; // { total, left, interval }
+function fmtTime(s) { return `${Math.floor(s / 60)}:${pad(s % 60)}`; }
+function beep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; o.type = "sine";
+    g.gain.setValueAtTime(0.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.start(); o.stop(ctx.currentTime + 0.5);
+  } catch { }
+}
+function paintRest() {
+  $("#rtTime").textContent = fmtTime(Math.max(0, restState.left));
+  const pct = restState.total ? (restState.left / restState.total) * 100 : 0;
+  $("#rtProgress").style.width = Math.max(0, pct) + "%";
+}
+function startRest(name, seconds) {
+  stopRest(true);
+  restState = { total: seconds, left: seconds, interval: null };
+  $("#rtLabel").textContent = "Repos · " + name;
+  $("#restTimer").hidden = false;
+  document.body.classList.add("timer-on");
+  paintRest();
+  restState.interval = setInterval(() => {
+    restState.left -= 1;
+    paintRest();
+    if (restState.left <= 0) {
+      clearInterval(restState.interval);
+      navigator.vibrate?.([200, 100, 200, 100, 300]);
+      beep();
+      $("#rtLabel").textContent = "Repos terminé 💪 — c'est reparti";
+      $("#rtTime").textContent = "0:00";
+      setTimeout(() => { if (restState && restState.left <= 0) stopRest(); }, 4000);
+    }
+  }, 1000);
+}
+function stopRest(silent) {
+  if (restState?.interval) clearInterval(restState.interval);
+  restState = null;
+  if (!silent) { $("#restTimer").hidden = true; document.body.classList.remove("timer-on"); }
+}
+function adjustRest(delta) {
+  if (!restState) return;
+  restState.left = Math.max(1, restState.left + delta);
+  restState.total = Math.max(restState.total, restState.left);
+  paintRest();
+}
+
+/* ============ GRAPHIQUE (SVG ligne) ============ */
+function lineChart(points, { unit = "", goal = null } = {}) {
+  if (!points.length) return `<div class="chart-empty">Pas encore de données à afficher.</div>`;
+  const W = 320, H = 130, padL = 30, padR = 12, padT = 14, padB = 22;
+  const ys = points.map(p => p.y);
+  let min = Math.min(...ys), max = Math.max(...ys);
+  if (goal != null) { min = Math.min(min, goal); max = Math.max(max, goal); }
+  if (min === max) { min -= 1; max += 1; }
+  const range = max - min || 1;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const x = (i) => padL + (points.length === 1 ? innerW / 2 : (i / (points.length - 1)) * innerW);
+  const y = (v) => padT + innerH - ((v - min) / range) * innerH;
+
+  const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.y).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(points.length - 1).toFixed(1)},${(padT + innerH).toFixed(1)} L${x(0).toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
+  const dots = points.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p.y).toFixed(1)}" r="${i === points.length - 1 ? 4 : 2.6}" class="${i === points.length - 1 ? "dot-last" : "dot"}"/>`).join("");
+  const goalLine = goal != null ? `<line x1="${padL}" y1="${y(goal).toFixed(1)}" x2="${W - padR}" y2="${y(goal).toFixed(1)}" class="goal-line"/>` : "";
+  // labels axe Y (min/max) + premiers/derniers x
+  const yLabels = `<text x="4" y="${(y(max) + 4).toFixed(1)}" class="ax">${(+max.toFixed(1))}</text><text x="4" y="${(y(min) + 4).toFixed(1)}" class="ax">${(+min.toFixed(1))}</text>`;
+  const xFirst = `<text x="${padL}" y="${H - 6}" class="ax">${points[0].label}</text>`;
+  const xLast = points.length > 1 ? `<text x="${W - padR}" y="${H - 6}" class="ax" text-anchor="end">${points[points.length - 1].label}</text>` : "";
+  const lastVal = `<text x="${x(points.length - 1).toFixed(1)}" y="${(y(points[points.length - 1].y) - 9).toFixed(1)}" class="val" text-anchor="middle">${points[points.length - 1].y}${unit}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart-svg" preserveAspectRatio="xMidYMid meet">
+    ${goalLine}
+    <path d="${area}" class="area"/>
+    <path d="${line}" class="line"/>
+    ${dots}${lastVal}${yLabels}${xFirst}${xLast}
+  </svg>`;
+}
+
+/* ============ SUIVI POIDS DE CORPS ============ */
+const BW_KEY = "carnet_yanis_bw_v1";
+function loadBW() { try { return JSON.parse(localStorage.getItem(BW_KEY)) || []; } catch { return []; } }
+function saveBW(a) { localStorage.setItem(BW_KEY, JSON.stringify(a)); }
+function renderBodyweight() {
+  const data = loadBW().slice().sort((a, b) => a.iso.localeCompare(b.iso));
+  const curEl = $("#bwCurrent"), deltaEl = $("#bwDelta");
+  if (data.length) {
+    const cur = data[data.length - 1].kg;
+    curEl.textContent = `${cur} kg`;
+    if (data.length > 1) {
+      const diff = +(cur - data[0].kg).toFixed(1);
+      deltaEl.textContent = (diff >= 0 ? "+" : "") + diff + " kg depuis le début";
+      deltaEl.className = "bw-delta " + (diff >= 0 ? "up" : "down");
+    } else deltaEl.textContent = "1re pesée enregistrée";
+  } else { curEl.textContent = "— kg"; deltaEl.textContent = "Ajoute ta première pesée"; deltaEl.className = "bw-delta"; }
+  const points = data.map(d => ({ label: shortOf(d.iso), y: d.kg }));
+  $("#bwChart").innerHTML = lineChart(points, { unit: "kg" });
+}
+
+/* ============ PROGRESSION PAR EXERCICE ============ */
+function fillProgSelect() {
+  const sel = $("#progExo");
+  if (!sel || sel.options.length) return;
+  PROGRAM.forEach(s => {
+    const grp = document.createElement("optgroup");
+    grp.label = s.name;
+    s.exercises.forEach(ex => { const o = el("option"); o.value = ex.id; o.textContent = ex.name; grp.appendChild(o); });
+    sel.appendChild(grp);
+  });
+  sel.onchange = renderProgression;
+}
+function renderProgression() {
+  const sel = $("#progExo");
+  const exId = sel.value || PROGRAM[0].exercises[0].id;
+  const data = load()[exId] || [];
+  // une valeur par jour : le poids max ce jour-là
+  const byDay = {};
+  data.forEach(e => { const iso = entryISO(e); byDay[iso] = Math.max(byDay[iso] || 0, e.w); });
+  const points = Object.keys(byDay).sort().map(iso => ({ label: shortOf(iso), y: byDay[iso] }));
+  $("#progChart").innerHTML = lineChart(points, { unit: "kg" });
+  const meta = $("#progMeta");
+  if (points.length >= 2) {
+    const gain = +(points[points.length - 1].y - points[0].y).toFixed(1);
+    meta.innerHTML = `<span class="${gain >= 0 ? "up" : "down"}">${gain >= 0 ? "+" : ""}${gain} kg</span> entre ta 1re et ta dernière séance · ${points.length} séances notées`;
+  } else if (points.length === 1) {
+    meta.innerHTML = `Une seule séance notée pour l'instant. Continue, la courbe va monter 📈`;
+  } else {
+    meta.innerHTML = `Aucune donnée. Note tes charges dans l'onglet Suivi pour voir ta progression ici.`;
+  }
 }
 
 /* ============ HISTORIQUE / CALENDRIER ============ */
@@ -335,6 +484,9 @@ function renderHistory() {
   const monthDays = allDays.filter(d => d.startsWith(`${y}-${pad(m + 1)}`)).sort();
   if (monthDays.length) { const last = monthDays[monthDays.length - 1]; showDay(last, byDay[last]); }
   else $("#calDetail").innerHTML = `<div class="cal-detail-empty">Aucune séance enregistrée en ${MONTHS[m].toLowerCase()}. Touche une date marquée d'un point pour voir le détail.</div>`;
+
+  fillProgSelect();
+  renderProgression();
 }
 
 function showDay(iso, items) {
@@ -424,6 +576,26 @@ $("#editWeekBtn").onclick = toggleWeekEdit;
 $("#exportBtn").onclick = exportData;
 $("#calPrev").onclick = () => { calRef = new Date(calRef.getFullYear(), calRef.getMonth() - 1, 1); renderHistory(); };
 $("#calNext").onclick = () => { calRef = new Date(calRef.getFullYear(), calRef.getMonth() + 1, 1); renderHistory(); };
+
+// poids de corps
+$("#bwBtn").onclick = () => {
+  const kg = parseFloat($("#bwInput").value);
+  if (isNaN(kg) || kg <= 0) { $("#bwInput").focus(); return; }
+  const arr = loadBW();
+  const iso = todayISO();
+  const existing = arr.find(e => e.iso === iso);
+  if (existing) existing.kg = kg; else arr.push({ iso, kg });
+  saveBW(arr);
+  $("#bwInput").value = "";
+  renderBodyweight();
+  flashToast(`Poids enregistré · ${kg} kg`);
+};
+$("#bwInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#bwBtn").click(); });
+
+// timer de repos
+$("#rtStop").onclick = () => stopRest();
+$("#rtMinus").onclick = () => adjustRest(-15);
+$("#rtPlus").onclick = () => adjustRest(15);
 
 /* ============ PWA ============ */
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

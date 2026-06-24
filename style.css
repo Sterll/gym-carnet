@@ -351,6 +351,70 @@ main{max-width:var(--maxw);margin:0 auto;padding:22px 18px 40px}
 .cd-load small{font-family:'Inter';font-size:11px;color:var(--muted);font-weight:600;margin-left:1px}
 .cal-detail-empty{font-size:13px;color:var(--faint);text-align:center;padding:24px 12px;line-height:1.6;border:1px dashed var(--line);border-radius:var(--radius)}
 
+/* ---------- BOUTON REPOS (dans le suivi) ---------- */
+.track-name .track-target{margin-left:7px}
+.track-rest{
+  flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line);color:var(--accent);
+  border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:.15s;
+}
+.track-rest b{color:var(--text)}
+.track-rest:active{background:var(--accent);color:#0B0B0C}
+.track-rest:active b{color:#0B0B0C}
+
+/* ---------- GRAPHIQUE ---------- */
+.chart{margin:8px 0 2px}
+.chart-svg{width:100%;height:auto;display:block;overflow:visible}
+.chart-svg .area{fill:rgba(214,255,61,.10)}
+.chart-svg .line{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.chart-svg .dot{fill:var(--accent)}
+.chart-svg .dot-last{fill:#0B0B0C;stroke:var(--accent);stroke-width:2.5}
+.chart-svg .goal-line{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 4;opacity:.6}
+.chart-svg .ax{fill:var(--faint);font-size:9px}
+.chart-svg .val{fill:var(--accent);font-size:11px;font-weight:700}
+.chart-empty{font-size:12.5px;color:var(--faint);text-align:center;padding:26px 12px;border:1px dashed var(--line);border-radius:var(--radius)}
+
+/* ---------- POIDS DE CORPS ---------- */
+.bw-block{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;margin-bottom:18px}
+.bw-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.bw-head{display:flex;flex-direction:column;gap:3px}
+.bw-cur{font-family:'Anton',sans-serif;font-size:34px;line-height:.9;color:var(--accent)}
+.bw-delta{font-size:12px;color:var(--muted);font-weight:600}
+.bw-delta.up{color:var(--accent)}
+.bw-delta.down{color:var(--warn)}
+.bw-add{display:flex;gap:8px;align-items:center}
+.bw-add input{width:92px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 12px;font-size:15px;font-weight:600;font-family:inherit;text-align:center}
+.bw-btn{background:var(--accent);color:#0B0B0C;border:none;border-radius:10px;padding:10px 15px;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer;transition:.12s}
+.bw-btn:active{background:var(--accent-press);transform:scale(.96)}
+.bw-hint{display:block;font-size:11.5px;color:var(--faint);margin-top:10px}
+
+.prog-select{margin-bottom:12px}
+.prog-meta{font-size:13px;color:var(--muted);margin-top:8px;text-align:center;line-height:1.5}
+.prog-meta .up{color:var(--accent);font-weight:700}
+.prog-meta .down{color:var(--warn);font-weight:700}
+
+/* ---------- TIMER DE REPOS (flottant) ---------- */
+.rest-timer{
+  position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom));z-index:45;
+  background:rgba(20,20,23,.97);backdrop-filter:blur(12px);
+  border-top:1px solid var(--accent);box-shadow:0 -8px 24px -10px rgba(0,0,0,.7);
+}
+.rest-timer[hidden]{display:none}
+body.timer-on{padding-bottom:calc(var(--tabbar-h) + 66px + env(safe-area-inset-bottom))}
+.rt-bar{height:4px;background:var(--surface-2)}
+.rt-bar i{display:block;height:100%;background:var(--accent);width:100%;transition:width 1s linear}
+.rt-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;max-width:var(--maxw);margin:0 auto}
+.rt-info{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rt-label{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:48vw}
+.rt-time{font-family:'Anton',sans-serif;font-size:25px;line-height:1;color:var(--accent)}
+.rt-actions{display:flex;gap:7px;flex:0 0 auto}
+.rt-adj{background:var(--surface-2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:9px 11px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+.rt-adj:active{background:var(--line)}
+.rt-stop{background:var(--accent);color:#0B0B0C;border:none;border-radius:9px;padding:9px 15px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer}
+@media(min-width:720px){
+  .rest-timer{bottom:18px;left:50%;transform:translateX(-50%);right:auto;width:var(--maxw);max-width:calc(100vw - 32px);border:1px solid var(--accent);border-radius:14px;overflow:hidden}
+}
+
 /* ---------- TABBAR ---------- */
 .tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:40;

@@ -64,6 +64,22 @@
       <p class="view-lead">Ton défi n°1 : manger assez. À ton métabolisme, sous-manger = stagner. Vise les chiffres tous les jours.</p>
     </div>
 
+    <h2 class="block-title">Ton poids de corps</h2>
+    <div class="bw-block">
+      <div class="bw-top">
+        <div class="bw-head">
+          <span class="bw-cur" id="bwCurrent">—</span>
+          <span class="bw-delta" id="bwDelta"></span>
+        </div>
+        <div class="bw-add">
+          <input type="number" inputmode="decimal" step="0.1" id="bwInput" placeholder="kg">
+          <button class="bw-btn" id="bwBtn" type="button">Ajouter</button>
+        </div>
+      </div>
+      <div class="chart" id="bwChart"></div>
+      <span class="bw-hint" id="bwHint">Pèse-toi 1×/sem le matin à jeun. Objectif : +0,3 kg/semaine.</span>
+    </div>
+
     <div class="macro-grid">
       <div class="macro-card macro-hero">
         <span class="macro-label">Calories / jour</span>
@@ -157,9 +173,33 @@
     </div>
 
     <div id="calDetail"></div>
+
+    <h2 class="block-title">Progression par exercice</h2>
+    <label class="select-wrap prog-select">
+      <span>Choisis un exercice</span>
+      <select id="progExo"></select>
+    </label>
+    <div class="chart" id="progChart"></div>
+    <div class="prog-meta" id="progMeta"></div>
   </section>
 
 </main>
+
+<!-- ============ TIMER DE REPOS (flottant) ============ -->
+<div class="rest-timer" id="restTimer" hidden>
+  <div class="rt-bar"><i id="rtProgress"></i></div>
+  <div class="rt-row">
+    <div class="rt-info">
+      <span class="rt-label" id="rtLabel">Repos</span>
+      <span class="rt-time" id="rtTime">0:00</span>
+    </div>
+    <div class="rt-actions">
+      <button class="rt-adj" id="rtMinus" type="button">−15s</button>
+      <button class="rt-adj" id="rtPlus" type="button">+15s</button>
+      <button class="rt-stop" id="rtStop" type="button">Stop</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============ NAV BAS ============ -->
 <nav class="tabbar" id="tabbar">
