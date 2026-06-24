@@ -570,7 +570,8 @@ const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 let guided = null; // { session, i, data:{exId:[{w,r}|null]}, saved }
 
 function startGuided(sessionId) {
-  guided = { session: sessionById(sessionId), i: 0, data: {}, saved: false };
+  const session = sessionById(sessionId);
+  guided = { session, order: session.exercises.slice(), pos: 0, data: {}, saved: false };
   $("#guided").hidden = false;
   document.body.classList.add("guided-open");
   renderGuided();
@@ -604,16 +605,16 @@ function persistGuided() {
 function renderGuided() {
   const s = guided.session;
   $("#gSessionName").textContent = s.name;
-  $("#gExCount").textContent = `Exercice ${guided.i + 1}/${s.exercises.length}`;
-  $("#gBar").style.width = (guided.i / s.exercises.length * 100) + "%";
+  $("#gExCount").textContent = `Exercice ${guided.pos + 1}/${guided.order.length}`;
+  $("#gBar").style.width = (guided.pos / guided.order.length * 100) + "%";
   $("#gPrev").hidden = false; $("#gNext").hidden = false; $("#gDone").hidden = true;
-  $("#gPrev").disabled = guided.i === 0;
-  $("#gNext").textContent = guided.i === s.exercises.length - 1 ? "Terminer 💪" : "Suivant ›";
+  $("#gPrev").disabled = guided.pos === 0;
+  $("#gNext").textContent = guided.pos === guided.order.length - 1 ? "Terminer 💪" : "Suivant ›";
   renderGuidedExercise();
 }
 
 function renderGuidedExercise() {
-  const ex = guided.session.exercises[guided.i];
+  const ex = guided.order[guided.pos];
   const last = (load()[ex.id] || []).slice(-1)[0];
   if (!guided.data[ex.id]) guided.data[ex.id] = new Array(ex.sets).fill(null);
   const sets = guided.data[ex.id];
@@ -636,9 +637,19 @@ function renderGuidedExercise() {
       <button class="g-check" data-k="${k}" type="button">${d ? "✓" : "OK"}</button>
     </div>`;
   }
-  html += `</div></div>`;
+  html += `</div>
+    <div class="g-actions">
+      <button class="g-busy" id="gBusy" type="button"><svg viewBox="0 0 24 24"><path d="M12 6V3L8 7l4 4V8a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5H5a7 7 0 0 0 7 7 7 7 0 0 0 7-7c0-3.87-3.13-7-7-7z"/></svg> Machine occupée</button>
+      <button class="g-skip" id="gSkip" type="button">Passer l'exo ›</button>
+    </div>
+  </div>`;
   $("#gBody").innerHTML = html;
   $("#gBody").scrollTop = 0;
+
+  const busyBtn = $("#gBusy");
+  busyBtn.onclick = machineBusy;
+  busyBtn.disabled = guided.pos >= guided.order.length - 1;
+  $("#gSkip").onclick = skipExercise;
 
   $$(".g-check", $("#gBody")).forEach(btn => {
     btn.onclick = () => {
@@ -656,10 +667,31 @@ function renderGuidedExercise() {
 }
 
 function guidedNext() {
-  if (guided.i === guided.session.exercises.length - 1) { finishGuided(); return; }
-  guided.i++; renderGuided();
+  if (guided.pos === guided.order.length - 1) { finishGuided(); return; }
+  guided.pos++; renderGuided();
 }
-function guidedPrev() { if (guided.i > 0) { guided.i--; renderGuided(); } }
+function guidedPrev() { if (guided.pos > 0) { guided.pos--; renderGuided(); } }
+
+function skipExercise() {
+  if (!confirm("Passer cet exercice ? Essaie de pas le zapper si tu peux 😏")) return;
+  const ex = guided.order[guided.pos];
+  delete guided.data[ex.id]; // pas de données pour un exo zappé
+  guided.order.splice(guided.pos, 1);
+  stopRest();
+  if (guided.pos >= guided.order.length) { finishGuided(); return; }
+  renderGuided();
+  flashToast("Exo passé");
+}
+
+function machineBusy() {
+  if (guided.pos >= guided.order.length - 1) { flashToast("C'est déjà le dernier exo"); return; }
+  const ex = guided.order[guided.pos];
+  guided.order.splice(guided.pos, 1);      // on retire l'exo courant
+  guided.order.splice(guided.pos + 1, 0, ex); // et on le remet juste après le prochain
+  stopRest();
+  renderGuided(); // pos ne bouge pas → pointe maintenant sur l'exo suivant
+  flashToast("Machine occupée — on y revient juste après 🔄");
+}
 
 function finishGuided() {
   persistGuided();

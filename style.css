@@ -464,6 +464,19 @@ body.guided-open{overflow:hidden}
 .g-check:active{background:var(--accent-press);transform:scale(.95)}
 .g-set.done .g-check{background:var(--surface-2);color:var(--accent);border:1px solid var(--accent);font-size:16px}
 
+.g-actions{display:flex;gap:9px;margin-top:18px}
+.g-busy,.g-skip{
+  flex:1;border-radius:var(--radius-sm);padding:13px 10px;font-weight:700;font-size:13px;
+  font-family:inherit;cursor:pointer;transition:.14s;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+}
+.g-busy{background:var(--surface);border:1px solid var(--line);color:var(--text)}
+.g-busy svg{width:15px;height:15px;fill:var(--accent)}
+.g-busy:active{background:var(--surface-2)}
+.g-busy:disabled{opacity:.4}
+.g-busy:disabled svg{fill:var(--faint)}
+.g-skip{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.g-skip:active{border-color:var(--warn);color:var(--warn)}
+
 .g-nav{
   flex:0 0 auto;display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);
   background:var(--surface);

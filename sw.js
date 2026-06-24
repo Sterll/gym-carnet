@@ -1,7 +1,7 @@
 /* Service worker — offline pour la salle, mais toujours à jour quand il y a du réseau.
    Code (html/js/css) : network-first (frais en priorité, cache en secours hors-ligne).
    Statique (icônes/manifest) : cache-first. */
-const CACHE = "carnet-yanis-v6";
+const CACHE = "carnet-yanis-v7";
 const ASSETS = [
   "./",
   "./index.html",
