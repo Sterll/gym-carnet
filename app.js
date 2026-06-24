@@ -23,7 +23,7 @@ const PROGRAM = [
     exercises: [
       { id: "la1", name: "Presse à cuisses", alt: "Leg Press", sets: 4, reps: "10-12", rest: "2 min" },
       { id: "la2", name: "Leg extension", alt: "Quadriceps", sets: 4, reps: "12-15", rest: "90s" },
-      { id: "la3", name: "Leg curl allongé", alt: "Ischios", sets: 4, reps: "12-15", rest: "90s" },
+      { id: "la3", name: "Leg curl assis", alt: "Ischios (machine assise)", sets: 4, reps: "12-15", rest: "90s" },
       { id: "la4", name: "Mollets à la presse", sets: 4, reps: "15-20", rest: "60s" },
       { id: "la5", name: "Abdos machine (crunch)", sets: 3, reps: "15-20", rest: "45s" },
     ],
