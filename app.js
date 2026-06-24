@@ -174,6 +174,9 @@ function renderSession() {
   banner.innerHTML = `<div><h2>${s.name}</h2><div class="s-focus">${s.focus}</div></div>
     <div class="s-count"><b>${s.exercises.length}</b>exercices</div>`;
   card.appendChild(banner);
+  const startBtn = el("button", "g-start-btn", `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Démarrer la séance`);
+  startBtn.onclick = () => startGuided(s.id);
+  card.appendChild(startBtn);
   s.exercises.forEach((ex, i) => {
     const row = el("div", "ex");
     row.innerHTML = `<div class="ex-num">${i + 1}</div>
@@ -562,6 +565,127 @@ function flashToast(msg) {
   toastTimer = setTimeout(() => { t.style.opacity = "0"; }, 1800);
 }
 
+/* ============ SÉANCE GUIDÉE ============ */
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+let guided = null; // { session, i, data:{exId:[{w,r}|null]}, saved }
+
+function startGuided(sessionId) {
+  guided = { session: sessionById(sessionId), i: 0, data: {}, saved: false };
+  $("#guided").hidden = false;
+  document.body.classList.add("guided-open");
+  renderGuided();
+}
+function closeGuided() {
+  persistGuided();
+  guided = null;
+  $("#guided").hidden = true;
+  document.body.classList.remove("guided-open");
+  stopRest();
+  renderTrack();
+}
+function persistGuided() {
+  if (!guided || guided.saved) return;
+  guided.saved = true;
+  const store = load();
+  const iso = todayISO();
+  let saved = false;
+  Object.keys(guided.data).forEach(exId => {
+    const sets = guided.data[exId].filter(s => s && s.w > 0 && s.r > 0);
+    if (!sets.length) return;
+    const bestSet = sets.reduce((b, s) => (s.w * s.r > b.w * b.r ? s : b), sets[0]);
+    store[exId] = store[exId] || [];
+    store[exId].push({ w: bestSet.w, r: bestSet.r, iso });
+    store[exId].sort((a, b) => entryISO(a).localeCompare(entryISO(b)));
+    saved = true;
+  });
+  if (saved) save(store);
+}
+
+function renderGuided() {
+  const s = guided.session;
+  $("#gSessionName").textContent = s.name;
+  $("#gExCount").textContent = `Exercice ${guided.i + 1}/${s.exercises.length}`;
+  $("#gBar").style.width = (guided.i / s.exercises.length * 100) + "%";
+  $("#gPrev").hidden = false; $("#gNext").hidden = false; $("#gDone").hidden = true;
+  $("#gPrev").disabled = guided.i === 0;
+  $("#gNext").textContent = guided.i === s.exercises.length - 1 ? "Terminer 💪" : "Suivant ›";
+  renderGuidedExercise();
+}
+
+function renderGuidedExercise() {
+  const ex = guided.session.exercises[guided.i];
+  const last = (load()[ex.id] || []).slice(-1)[0];
+  if (!guided.data[ex.id]) guided.data[ex.id] = new Array(ex.sets).fill(null);
+  const sets = guided.data[ex.id];
+
+  let html = `<div class="g-ex">
+    <span class="g-ex-target">${ex.sets} × ${ex.reps} reps · repos ${ex.rest}</span>
+    <h2 class="g-ex-name">${esc(ex.name)}</h2>
+    ${ex.alt ? `<span class="g-ex-alt">${esc(ex.alt)}</span>` : ""}
+    ${last
+      ? `<div class="g-last">Dernière fois : <b>${last.w}kg × ${last.r}</b> — fais au moins pareil, voire plus 💪</div>`
+      : `<div class="g-last muted">Première fois : trouve un poids où tu finis tes reps proprement.</div>`}
+    <div class="g-sets">`;
+  for (let k = 0; k < ex.sets; k++) {
+    const d = sets[k];
+    html += `<div class="g-set${d ? " done" : ""}">
+      <span class="g-set-n">${k + 1}</span>
+      <input class="g-w" type="number" inputmode="decimal" placeholder="kg" value="${d ? d.w : (last ? last.w : "")}">
+      <span class="g-x">×</span>
+      <input class="g-r" type="number" inputmode="numeric" placeholder="reps" value="${d ? d.r : ""}">
+      <button class="g-check" data-k="${k}" type="button">${d ? "✓" : "OK"}</button>
+    </div>`;
+  }
+  html += `</div></div>`;
+  $("#gBody").innerHTML = html;
+  $("#gBody").scrollTop = 0;
+
+  $$(".g-check", $("#gBody")).forEach(btn => {
+    btn.onclick = () => {
+      const k = +btn.dataset.k;
+      const row = btn.closest(".g-set");
+      const w = parseFloat($(".g-w", row).value);
+      const r = parseInt($(".g-r", row).value, 10);
+      if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { $(".g-w", row).focus(); return; }
+      const already = !!guided.data[ex.id][k];
+      guided.data[ex.id][k] = { w, r };
+      renderGuidedExercise();
+      if (!already) startRest(ex.name, restSeconds(ex.rest)); // timer auto à la validation
+    };
+  });
+}
+
+function guidedNext() {
+  if (guided.i === guided.session.exercises.length - 1) { finishGuided(); return; }
+  guided.i++; renderGuided();
+}
+function guidedPrev() { if (guided.i > 0) { guided.i--; renderGuided(); } }
+
+function finishGuided() {
+  persistGuided();
+  const s = guided.session;
+  let exDone = 0, setsDone = 0, volume = 0;
+  Object.keys(guided.data).forEach(exId => {
+    const done = guided.data[exId].filter(x => x && x.w > 0 && x.r > 0);
+    if (done.length) { exDone++; setsDone += done.length; done.forEach(x => volume += x.w * x.r); }
+  });
+  $("#gBar").style.width = "100%";
+  $("#gExCount").textContent = "Terminée";
+  $("#gBody").innerHTML = `<div class="g-finish">
+    <div class="g-finish-badge">💪</div>
+    <h2 class="g-finish-title">Séance terminée</h2>
+    <p class="g-finish-sub">${s.name} — bien joué Yanis</p>
+    <div class="g-finish-stats">
+      <div><b>${exDone}</b><span>exercices</span></div>
+      <div><b>${setsDone}</b><span>séries</span></div>
+      <div><b>${Math.round(volume)}</b><span>kg soulevés</span></div>
+    </div>
+    <p class="g-finish-note">Tout est enregistré dans ton historique. Maintenant : mange tes 3000 kcal et dors bien, c'est là que le muscle se construit.</p>
+  </div>`;
+  $("#gPrev").hidden = true; $("#gNext").hidden = true; $("#gDone").hidden = false;
+  stopRest();
+}
+
 /* ============ NAVIGATION ============ */
 function switchView(target) {
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("hidden", v.dataset.view !== target));
@@ -612,6 +736,12 @@ $("#bwInput").addEventListener("keydown", e => { if (e.key === "Enter") $("#bwBt
 $("#rtStop").onclick = () => stopRest();
 $("#rtMinus").onclick = () => adjustRest(-15);
 $("#rtPlus").onclick = () => adjustRest(15);
+
+// séance guidée
+$("#gClose").onclick = closeGuided;
+$("#gPrev").onclick = guidedPrev;
+$("#gNext").onclick = guidedNext;
+$("#gDone").onclick = closeGuided;
 
 /* ============ PWA ============ */
 if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

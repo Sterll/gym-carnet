@@ -185,6 +185,24 @@
 
 </main>
 
+<!-- ============ SÉANCE GUIDÉE (plein écran) ============ -->
+<div class="guided" id="guided" hidden>
+  <div class="g-top">
+    <button class="g-close" id="gClose" type="button" aria-label="Fermer">✕</button>
+    <div class="g-head">
+      <span class="g-session" id="gSessionName">Séance</span>
+      <span class="g-count" id="gExCount">Exercice 1/1</span>
+    </div>
+    <div class="g-bar"><i id="gBar"></i></div>
+  </div>
+  <div class="g-body" id="gBody"></div>
+  <div class="g-nav" id="gNav">
+    <button class="g-prev" id="gPrev" type="button">‹ Précédent</button>
+    <button class="g-next" id="gNext" type="button">Suivant ›</button>
+    <button class="g-done" id="gDone" type="button" hidden>Fermer</button>
+  </div>
+</div>
+
 <!-- ============ TIMER DE REPOS (flottant) ============ -->
 <div class="rest-timer" id="restTimer" hidden>
   <div class="rt-bar"><i id="rtProgress"></i></div>
