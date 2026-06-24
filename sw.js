@@ -1,5 +1,5 @@
 /* Service worker — cache offline pour usage à la salle (réseau capricieux) */
-const CACHE = "carnet-yanis-v1";
+const CACHE = "carnet-yanis-v2";
 const ASSETS = [
   "./",
   "./index.html",

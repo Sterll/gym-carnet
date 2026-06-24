@@ -1,11 +1,12 @@
 /* ============================================================
    Carnet d'entraînement — logique
-   Données du programme + navigation + suivi des charges (localStorage)
+   Programme + planning éditable + suivi des charges + historique
+   Stockage : localStorage (100% sur le téléphone)
    ============================================================ */
 
 const PROGRAM = [
   {
-    id: "upperA", name: "Upper A", focus: "Haut · Poussée", day: 0,
+    id: "upperA", name: "Upper A", focus: "Haut · Poussée", short: "Up A",
     exercises: [
       { id: "ua1", name: "Développé couché haltères", sets: 4, reps: "8-10", rest: "2 min" },
       { id: "ua2", name: "Développé incliné machine", alt: "Chest Press incliné", sets: 3, reps: "10-12", rest: "90s" },
@@ -18,7 +19,7 @@ const PROGRAM = [
     note: "Ta séance préférée. Concentre-toi sur le contrôle : 2 secondes à la descente."
   },
   {
-    id: "lowerA", name: "Lower A", focus: "Bas · Quadriceps", day: 1,
+    id: "lowerA", name: "Lower A", focus: "Bas · Quadriceps", short: "Low A",
     exercises: [
       { id: "la1", name: "Presse à cuisses", alt: "Leg Press", sets: 4, reps: "10-12", rest: "2 min" },
       { id: "la2", name: "Leg extension", alt: "Quadriceps", sets: 4, reps: "12-15", rest: "90s" },
@@ -29,7 +30,7 @@ const PROGRAM = [
     note: "Version « moins relou » : que des machines, zéro squat libre. ~40 min, et c'est plié."
   },
   {
-    id: "upperB", name: "Upper B", focus: "Haut · Tirage", day: 3,
+    id: "upperB", name: "Upper B", focus: "Haut · Tirage", short: "Up B",
     exercises: [
       { id: "ub1", name: "Tractions assistées", alt: "ou Lat Pulldown prise large", sets: 4, reps: "8-10", rest: "2 min" },
       { id: "ub2", name: "Rowing machine prise neutre", alt: "Seated / T-bar Row", sets: 4, reps: "10-12", rest: "90s" },
@@ -42,7 +43,7 @@ const PROGRAM = [
     note: "C'est ici qu'on retrouve ton dos + biceps. Le dos demande de bien « tirer avec les coudes »."
   },
   {
-    id: "lowerB", name: "Lower B", focus: "Bas · Fessiers / Ischios", day: 4,
+    id: "lowerB", name: "Lower B", focus: "Bas · Fessiers / Ischios", short: "Low B",
     exercises: [
       { id: "lb1", name: "Hip thrust machine", alt: "ou haltère sur les hanches", sets: 4, reps: "10-12", rest: "90s" },
       { id: "lb2", name: "Leg curl assis", alt: "Ischios", sets: 4, reps: "12-15", rest: "90s" },
@@ -54,15 +55,10 @@ const PROGRAM = [
   },
 ];
 
-const WEEK = [
-  { name: "Lun", tag: "Upper A", on: true },
-  { name: "Mar", tag: "Lower A", on: true },
-  { name: "Mer", tag: "Repos", on: false },
-  { name: "Jeu", tag: "Upper B", on: true },
-  { name: "Ven", tag: "Lower B", on: true },
-  { name: "Sam", tag: "Repos", on: false },
-  { name: "Dim", tag: "Repos", on: false },
-];
+const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const DAYS_LONG = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+const DEFAULT_SCHEDULE = ["upperA", "lowerA", "rest", "upperB", "lowerB", "rest", "rest"];
 
 const MEALS = [
   { when: "Petit-déj", what: "80g flocons d'avoine + 30g whey + 1 banane + 1 c.à.s beurre de cacahuète + lait entier" },
@@ -72,44 +68,91 @@ const MEALS = [
   { when: "Dîner", what: "150g viande ou poisson + pommes de terre ou pâtes (120g cru) + légumes" },
   { when: "Coucher", what: "200g fromage blanc ou un verre de lait entier (optionnel, bonus hardgainer)" },
 ];
-
 const MACRO_INFO = [
   { t: "Protéines", tag: "la brique", d: "Le plus important pour le muscle. Poulet, dinde, bœuf maigre, œufs, thon/saumon, skyr, lentilles, whey." },
   { t: "Glucides", tag: "le carburant", d: "Ton énergie à la salle. Riz, pâtes, pommes de terre, flocons d'avoine, pain complet, fruits." },
   { t: "Lipides", tag: "les hormones", d: "Santé + production hormonale. Huile d'olive, avocat, amandes/noix, œufs, poissons gras." },
 ];
-
 const SUPPS = [
   { name: "Whey", use: "Atteindre tes protéines facilement. Le seul vraiment utile au début." },
   { name: "Créatine", use: "3-5g/jour, tous les jours. +force, +volume — le plus prouvé scientifiquement." },
   { name: "Oméga 3", use: "Bonus santé articulaire/cardio si tu manges peu de poisson." },
 ];
 
-const STORE_KEY = "carnet_yanis_v1";
+/* ---------- helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const shortOf = (iso) => { const p = iso.split("-"); return `${p[2]}/${p[1]}`; };
+const todayISO = () => isoOf(new Date());
+
+// index exercice -> séance parente
+const EX_INDEX = {};
+PROGRAM.forEach(s => s.exercises.forEach(ex => { EX_INDEX[ex.id] = s; }));
+const sessionById = (id) => PROGRAM.find(s => s.id === id) || null;
+const sessionLabel = (id) => id === "rest" ? "Repos" : (sessionById(id)?.name || "Repos");
 
 /* ---------- storage ---------- */
-function load() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
-function save(data) { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+const ENTRIES_KEY = "carnet_yanis_v1";
+const SCHEDULE_KEY = "carnet_yanis_schedule_v1";
+function load() { try { return JSON.parse(localStorage.getItem(ENTRIES_KEY)) || {}; } catch { return {}; } }
+function save(data) { localStorage.setItem(ENTRIES_KEY, JSON.stringify(data)); }
+function loadSchedule() {
+  try { const s = JSON.parse(localStorage.getItem(SCHEDULE_KEY)); return Array.isArray(s) && s.length === 7 ? s : DEFAULT_SCHEDULE.slice(); }
+  catch { return DEFAULT_SCHEDULE.slice(); }
+}
+function saveSchedule(s) { localStorage.setItem(SCHEDULE_KEY, JSON.stringify(s)); }
+// normalise une entrée : garantit un champ iso
+function entryISO(e) {
+  if (e.iso) return e.iso;
+  if (e.d && /^\d{2}\/\d{2}$/.test(e.d)) { const [dd, mm] = e.d.split("/"); return `${new Date().getFullYear()}-${mm}-${dd}`; }
+  return todayISO();
+}
 
-/* ---------- icons ---------- */
+let schedule = loadSchedule();
 const CLOCK = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm1-13h-2v6l5 3 1-1.7-4-2.3z"/></svg>';
 
-/* ============ SÉANCES ============ */
-let currentSession = PROGRAM[0].id;
-
+/* ============ SÉANCES : planning éditable ============ */
 function renderWeek() {
   const strip = $("#weekStrip");
   strip.innerHTML = "";
-  WEEK.forEach(d => {
-    const c = el("div", "day" + (d.on ? " on" : " rest"));
-    c.innerHTML = `<span class="d-name">${d.name}</span><span class="d-tag">${d.on ? d.tag : "—"}</span>`;
+  schedule.forEach((sid, i) => {
+    const on = sid !== "rest";
+    const c = el("div", "day" + (on ? " on" : " rest"));
+    c.innerHTML = `<span class="d-name">${DAYS[i]}</span><span class="d-tag">${on ? sessionById(sid).short : "—"}</span>`;
     strip.appendChild(c);
   });
 }
 
+function renderWeekEdit() {
+  const box = $("#weekEdit");
+  box.innerHTML = "";
+  schedule.forEach((sid, i) => {
+    const row = el("div", "we-row");
+    const opts = ['<option value="rest">Repos</option>']
+      .concat(PROGRAM.map(s => `<option value="${s.id}">${s.name} — ${s.focus}</option>`)).join("");
+    row.innerHTML = `<span class="we-day">${DAYS_LONG[i]}</span>
+      <select class="we-select" data-i="${i}">${opts}</select>`;
+    const sel = $(".we-select", row);
+    sel.value = sid;
+    sel.onchange = () => { schedule[i] = sel.value; saveSchedule(schedule); renderWeek(); dayHint(); };
+    box.appendChild(row);
+  });
+}
+
+let weekEditing = false;
+function toggleWeekEdit() {
+  weekEditing = !weekEditing;
+  $("#weekEdit").classList.toggle("hidden", !weekEditing);
+  $("#weekStrip").classList.toggle("hidden", weekEditing);
+  $("#editWeekBtn").textContent = weekEditing ? "Terminé" : "Modifier";
+  $("#editWeekBtn").classList.toggle("on", weekEditing);
+  if (weekEditing) renderWeekEdit();
+}
+
+let currentSession = PROGRAM[0].id;
 function renderPicker() {
   const p = $("#sessionPicker");
   p.innerHTML = "";
@@ -120,39 +163,24 @@ function renderPicker() {
     p.appendChild(b);
   });
 }
-
 function renderSession() {
-  const s = PROGRAM.find(x => x.id === currentSession);
+  const s = sessionById(currentSession);
   const idx = PROGRAM.indexOf(s) + 1;
   const wrap = $("#sessionContent");
   wrap.innerHTML = "";
-
   const card = el("div", "session");
   const banner = el("div", "session-banner");
   banner.dataset.index = "0" + idx;
-  banner.innerHTML = `
-    <div>
-      <h2>${s.name}</h2>
-      <div class="s-focus">${s.focus}</div>
-    </div>
+  banner.innerHTML = `<div><h2>${s.name}</h2><div class="s-focus">${s.focus}</div></div>
     <div class="s-count"><b>${s.exercises.length}</b>exercices</div>`;
   card.appendChild(banner);
-
   s.exercises.forEach((ex, i) => {
     const row = el("div", "ex");
-    row.innerHTML = `
-      <div class="ex-num">${i + 1}</div>
-      <div class="ex-body">
-        <div class="ex-name">${esc(ex.name)}</div>
-        ${ex.alt ? `<span class="ex-alt">${esc(ex.alt)}</span>` : ""}
-      </div>
-      <div class="ex-spec">
-        <span class="ex-sets"><b>${ex.sets}</b> × ${ex.reps}</span>
-        <span class="ex-rest">${CLOCK}${ex.rest}</span>
-      </div>`;
+    row.innerHTML = `<div class="ex-num">${i + 1}</div>
+      <div class="ex-body"><div class="ex-name">${esc(ex.name)}</div>${ex.alt ? `<span class="ex-alt">${esc(ex.alt)}</span>` : ""}</div>
+      <div class="ex-spec"><span class="ex-sets"><b>${ex.sets}</b> × ${ex.reps}</span><span class="ex-rest">${CLOCK}${ex.rest}</span></div>`;
     card.appendChild(row);
   });
-
   const note = el("div", "session-note");
   note.innerHTML = `<b>Note —</b><span>${esc(s.note)}</span>`;
   card.appendChild(note);
@@ -161,66 +189,41 @@ function renderSession() {
 
 /* ============ NUTRITION ============ */
 function renderNutrition() {
-  const ml = $("#mealList");
-  ml.innerHTML = "";
-  MEALS.forEach(m => {
-    const row = el("div", "meal");
-    row.innerHTML = `<div class="meal-when">${m.when}</div><div class="meal-what">${esc(m.what)}</div>`;
-    ml.appendChild(row);
-  });
-
-  const mi = $("#macroInfo");
-  mi.innerHTML = "";
-  MACRO_INFO.forEach(m => {
-    const c = el("div", "info-card");
-    c.innerHTML = `<h3>${m.t} <span>${m.tag}</span></h3><p>${esc(m.d)}</p>`;
-    mi.appendChild(c);
-  });
-
-  const sl = $("#suppList");
-  sl.innerHTML = "";
-  SUPPS.forEach(s => {
-    const row = el("div", "supp");
-    row.innerHTML = `<div class="supp-name">${s.name}</div><div class="supp-use">${esc(s.use)}</div>`;
-    sl.appendChild(row);
-  });
+  const ml = $("#mealList"); ml.innerHTML = "";
+  MEALS.forEach(m => { const r = el("div", "meal"); r.innerHTML = `<div class="meal-when">${m.when}</div><div class="meal-what">${esc(m.what)}</div>`; ml.appendChild(r); });
+  const mi = $("#macroInfo"); mi.innerHTML = "";
+  MACRO_INFO.forEach(m => { const c = el("div", "info-card"); c.innerHTML = `<h3>${m.t} <span>${m.tag}</span></h3><p>${esc(m.d)}</p>`; mi.appendChild(c); });
+  const sl = $("#suppList"); sl.innerHTML = "";
+  SUPPS.forEach(s => { const r = el("div", "supp"); r.innerHTML = `<div class="supp-name">${s.name}</div><div class="supp-use">${esc(s.use)}</div>`; sl.appendChild(r); });
 }
 
 /* ============ SUIVI ============ */
 let trackSession = PROGRAM[0].id;
-
 function fillTrackSelect() {
   const sel = $("#trackSession");
   sel.innerHTML = "";
-  PROGRAM.forEach(s => {
-    const o = el("option"); o.value = s.id; o.textContent = `${s.name} — ${s.focus}`;
-    sel.appendChild(o);
-  });
+  PROGRAM.forEach(s => { const o = el("option"); o.value = s.id; o.textContent = `${s.name} — ${s.focus}`; sel.appendChild(o); });
   sel.value = trackSession;
   sel.onchange = () => { trackSession = sel.value; renderTrack(); };
+  const dateInput = $("#trackDate");
+  dateInput.value = todayISO();
+  dateInput.max = todayISO();
 }
-
-function best(entries) {
-  return entries.reduce((b, e) => (e.w * (e.r || 1) > b.w * (b.r || 1) ? e : b), entries[0]);
-}
+function score(e) { return e.w * (e.r || 1); }
+function best(entries) { return entries.reduce((b, e) => (score(e) > score(b) ? e : b), entries[0]); }
 
 function renderTrack() {
   const data = load();
-  const s = PROGRAM.find(x => x.id === trackSession);
+  const s = sessionById(trackSession);
   const wrap = $("#trackContent");
   wrap.innerHTML = "";
-
   s.exercises.forEach(ex => {
     const entries = (data[ex.id] || []);
     const last = entries[entries.length - 1];
     const rec = entries.length ? best(entries) : null;
-
     const card = el("div", "track-ex");
     card.innerHTML = `
-      <div class="track-top">
-        <div class="track-name">${esc(ex.name)}</div>
-        <div class="track-target">${ex.sets}×${ex.reps}</div>
-      </div>
+      <div class="track-top"><div class="track-name">${esc(ex.name)}</div><div class="track-target">${ex.sets}×${ex.reps}</div></div>
       <div class="track-stats">
         <div class="stat"><span>Dernier</span><b>${last ? `${last.w}kg × ${last.r}` : "—"}</b></div>
         <div class="stat record"><span>Record</span><b>${rec ? `${rec.w}kg × ${rec.r}` : "—"}</b></div>
@@ -232,67 +235,160 @@ function renderTrack() {
         <button class="track-add" type="button" aria-label="Enregistrer">+</button>
       </div>
       <div class="track-hist"></div>`;
-
     const histWrap = $(".track-hist", card);
     if (!entries.length) {
       histWrap.innerHTML = `<span class="hist-empty">Aucune entrée. Note ta première charge après l'exo.</span>`;
     } else {
       entries.slice(-6).reverse().forEach(e => {
-        const isBest = rec && e.d === rec.d && e.w === rec.w && e.r === rec.r;
+        const isBest = rec && score(e) === score(rec) && e.w === rec.w;
         const chip = el("span", "hist-chip" + (isBest ? " best" : ""));
-        chip.innerHTML = `${e.w}×${e.r} <small>${e.d}</small>`;
+        chip.innerHTML = `${e.w}×${e.r} <small>${shortOf(entryISO(e))}</small>`;
         histWrap.appendChild(chip);
       });
     }
-
     $(".track-add", card).onclick = () => {
       const w = parseFloat($("#w_" + ex.id, card).value);
       const r = parseInt($("#r_" + ex.id, card).value, 10);
-      if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) {
-        $("#w_" + ex.id, card).focus();
-        return;
-      }
-      const d = new Date();
-      const stamp = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { $("#w_" + ex.id, card).focus(); return; }
+      const iso = $("#trackDate").value || todayISO();
       const store = load();
       store[ex.id] = store[ex.id] || [];
-      store[ex.id].push({ w, r, d: stamp });
+      store[ex.id].push({ w, r, iso });
+      store[ex.id].sort((a, b) => entryISO(a).localeCompare(entryISO(b)));
       save(store);
       renderTrack();
+      flashToast(`Enregistré · ${shortOf(iso)}`);
     };
-
     wrap.appendChild(card);
   });
 }
 
+/* ============ HISTORIQUE / CALENDRIER ============ */
+let calRef = new Date(); // mois affiché
+
+// regroupe toutes les entrées par date iso -> { iso: [{exId, name, session, w, r}] }
+function buildHistory() {
+  const data = load();
+  const byDay = {};
+  Object.keys(data).forEach(exId => {
+    const sess = EX_INDEX[exId];
+    if (!sess) return;
+    (data[exId] || []).forEach(e => {
+      const iso = entryISO(e);
+      (byDay[iso] = byDay[iso] || []).push({ exId, name: EX_INDEX[exId] ? exById(exId).name : exId, session: sess, w: e.w, r: e.r });
+    });
+  });
+  return byDay;
+}
+function exById(id) { return EX_INDEX[id].exercises.find(x => x.id === id); }
+// quelles séances ont été faites un jour donné (basé sur les exos loggés)
+function sessionsOfDay(items) {
+  const ids = [...new Set(items.map(i => i.session.id))];
+  return ids.map(id => sessionById(id));
+}
+
+function renderHistory() {
+  const byDay = buildHistory();
+  const allDays = Object.keys(byDay);
+
+  // ---- stats ----
+  const now = new Date();
+  const thisMonthKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const monthCount = allDays.filter(d => d.startsWith(thisMonthKey)).length;
+  // semaine en cours (lun→dim)
+  const dow = (now.getDay() + 6) % 7;
+  const monday = new Date(now); monday.setDate(now.getDate() - dow); monday.setHours(0, 0, 0, 0);
+  const weekCount = allDays.filter(d => { const dt = new Date(d + "T00:00:00"); return dt >= monday; }).length;
+
+  const stats = $("#histStats");
+  stats.innerHTML = "";
+  [["Séances totales", allDays.length], ["Ce mois", monthCount], ["Cette semaine", weekCount]].forEach(([label, val]) => {
+    const c = el("div", "stat-card");
+    c.innerHTML = `<b>${val}</b><span>${label}</span>`;
+    stats.appendChild(c);
+  });
+
+  // ---- grille calendrier ----
+  const y = calRef.getFullYear(), m = calRef.getMonth();
+  $("#calMonth").textContent = `${MONTHS[m]} ${y}`;
+  const grid = $("#calGrid");
+  grid.innerHTML = "";
+  const first = new Date(y, m, 1);
+  const lead = (first.getDay() + 6) % 7; // lundi = 0
+  const nbDays = new Date(y, m + 1, 0).getDate();
+  for (let i = 0; i < lead; i++) grid.appendChild(el("div", "cal-cell empty"));
+  for (let d = 1; d <= nbDays; d++) {
+    const iso = `${y}-${pad(m + 1)}-${pad(d)}`;
+    const items = byDay[iso];
+    const isToday = iso === todayISO();
+    const cell = el("button", "cal-cell" + (items ? " has" : "") + (isToday ? " today" : ""));
+    cell.type = "button";
+    cell.dataset.iso = iso;
+    let dots = "";
+    if (items) { const n = Math.min(sessionsOfDay(items).length, 3); dots = `<span class="cal-dots">${"<i></i>".repeat(n)}</span>`; }
+    cell.innerHTML = `<span class="cal-d">${d}</span>${dots}`;
+    if (items) cell.onclick = () => showDay(iso, items);
+    grid.appendChild(cell);
+  }
+
+  // détail : par défaut le dernier jour entraîné ce mois, sinon rien
+  const monthDays = allDays.filter(d => d.startsWith(`${y}-${pad(m + 1)}`)).sort();
+  if (monthDays.length) { const last = monthDays[monthDays.length - 1]; showDay(last, byDay[last]); }
+  else $("#calDetail").innerHTML = `<div class="cal-detail-empty">Aucune séance enregistrée en ${MONTHS[m].toLowerCase()}. Touche une date marquée d'un point pour voir le détail.</div>`;
+}
+
+function showDay(iso, items) {
+  const sessions = sessionsOfDay(items);
+  const p = iso.split("-");
+  const dt = new Date(iso + "T00:00:00");
+  const dayName = DAYS_LONG[(dt.getDay() + 6) % 7];
+  const box = $("#calDetail");
+  box.innerHTML = "";
+  const head = el("div", "cd-head");
+  head.innerHTML = `<div><span class="cd-date">${dayName} ${p[2]} ${MONTHS[+p[1] - 1].toLowerCase()}</span>
+    <span class="cd-sess">${sessions.map(s => s.name).join(" + ")}</span></div>
+    <span class="cd-count">${items.length} exo${items.length > 1 ? "s" : ""}</span>`;
+  box.appendChild(head);
+  // groupé par séance
+  sessions.forEach(sess => {
+    const list = items.filter(i => i.session.id === sess.id);
+    const group = el("div", "cd-group");
+    list.forEach(i => {
+      const row = el("div", "cd-row");
+      row.innerHTML = `<span class="cd-ex">${esc(i.name)}</span><span class="cd-load">${i.w}<small>kg</small> × ${i.r}</span>`;
+      group.appendChild(row);
+    });
+    box.appendChild(group);
+  });
+  // surligne la cellule active
+  document.querySelectorAll(".cal-cell.sel").forEach(c => c.classList.remove("sel"));
+  const active = document.querySelector(`.cal-cell[data-iso="${iso}"]`);
+  if (active) active.classList.add("sel");
+}
+
+/* ============ EXPORT ============ */
 function exportData() {
   const data = load();
-  const s = PROGRAM.find(x => x.id === trackSession);
+  const s = sessionById(trackSession);
   let txt = `CARNET YANIS — ${s.name}\n\n`;
   s.exercises.forEach(ex => {
     const entries = data[ex.id] || [];
     txt += `• ${ex.name} (${ex.sets}×${ex.reps})\n`;
-    txt += entries.length ? "  " + entries.map(e => `${e.w}kg×${e.r} (${e.d})`).join("  ·  ") + "\n\n" : "  —\n\n";
+    txt += entries.length ? "  " + entries.map(e => `${e.w}kg×${e.r} (${shortOf(entryISO(e))})`).join("  ·  ") + "\n\n" : "  —\n\n";
   });
-  if (navigator.share) {
-    navigator.share({ title: "Carnet Yanis", text: txt }).catch(() => copyFallback(txt));
-  } else {
-    copyFallback(txt);
-  }
+  if (navigator.share) navigator.share({ title: "Carnet Yanis", text: txt }).catch(() => copyFallback(txt));
+  else copyFallback(txt);
 }
 function copyFallback(txt) {
-  navigator.clipboard?.writeText(txt).then(
-    () => flashToast("Copié dans le presse-papier"),
-    () => flashToast("Export indisponible")
-  );
+  navigator.clipboard?.writeText(txt).then(() => flashToast("Copié dans le presse-papier"), () => flashToast("Export indisponible"));
 }
 let toastTimer;
 function flashToast(msg) {
   let t = $("#toast");
-  if (!t) { t = el("div"); t.id = "toast"; document.body.appendChild(t);
-    Object.assign(t.style, { position: "fixed", bottom: "84px", left: "50%", transform: "translateX(-50%)",
-      background: "#D6FF3D", color: "#0B0B0C", padding: "11px 18px", borderRadius: "999px",
-      fontWeight: "700", fontSize: "13px", zIndex: 99, transition: ".25s", boxShadow: "0 8px 24px -8px rgba(0,0,0,.6)" }); }
+  if (!t) {
+    t = el("div"); t.id = "toast"; document.body.appendChild(t);
+    Object.assign(t.style, { position: "fixed", bottom: "84px", left: "50%", transform: "translateX(-50%)", background: "#D6FF3D", color: "#0B0B0C", padding: "11px 18px", borderRadius: "999px", fontWeight: "700", fontSize: "13px", zIndex: 99, transition: ".25s", boxShadow: "0 8px 24px -8px rgba(0,0,0,.6)", maxWidth: "90vw", textAlign: "center" });
+  }
   t.textContent = msg; t.style.opacity = "1";
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.style.opacity = "0"; }, 1800);
@@ -302,19 +398,17 @@ function flashToast(msg) {
 function switchView(target) {
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("hidden", v.dataset.view !== target));
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.target === target));
-  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  if (target === "historique") renderHistory();
+  if (target === "suivi") renderTrack();
+  window.scrollTo({ top: 0 });
 }
 document.querySelectorAll(".tab").forEach(t => t.onclick = () => switchView(t.dataset.target));
 
 /* ============ DAY HINT ============ */
 function dayHint() {
-  const map = ["Repos", "Upper A", "Lower A", "Repos", "Upper B", "Lower B", "Repos"];
-  // JS getDay: 0=dim..6=sam → on remap vers lun=0
-  const js = new Date().getDay();
-  const idx = (js + 6) % 7;
-  const order = ["Upper A", "Lower A", "Repos", "Upper B", "Lower B", "Repos", "Repos"];
-  const today = order[idx];
-  $("#dayHint").textContent = today === "Repos" ? "Aujourd'hui · Repos" : "Auj · " + today;
+  const idx = (new Date().getDay() + 6) % 7;
+  const sid = schedule[idx];
+  $("#dayHint").textContent = sid === "rest" ? "Auj · Repos" : "Auj · " + sessionById(sid).name;
 }
 
 /* ============ INIT ============ */
@@ -325,9 +419,11 @@ renderNutrition();
 fillTrackSelect();
 renderTrack();
 dayHint();
+
+$("#editWeekBtn").onclick = toggleWeekEdit;
 $("#exportBtn").onclick = exportData;
+$("#calPrev").onclick = () => { calRef = new Date(calRef.getFullYear(), calRef.getMonth() - 1, 1); renderHistory(); };
+$("#calNext").onclick = () => { calRef = new Date(calRef.getFullYear(), calRef.getMonth() + 1, 1); renderHistory(); };
 
 /* ============ PWA ============ */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-}
+if ("serviceWorker" in navigator) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));

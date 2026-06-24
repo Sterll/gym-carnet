@@ -42,7 +42,14 @@
       <p class="view-lead">2 haut du corps, 2 bas. Chaque muscle travaillé deux fois par semaine. Que des haltères et machines.</p>
     </div>
 
-    <div class="week-strip" id="weekStrip"></div>
+    <div class="week-block">
+      <div class="week-head">
+        <span class="week-label">Ton planning de la semaine</span>
+        <button class="btn-edit" id="editWeekBtn" type="button">Modifier</button>
+      </div>
+      <div class="week-strip" id="weekStrip"></div>
+      <div class="week-edit hidden" id="weekEdit"></div>
+    </div>
 
     <div class="session-picker" id="sessionPicker"></div>
 
@@ -111,6 +118,10 @@
     </div>
 
     <div class="suivi-toolbar">
+      <label class="select-wrap date-wrap">
+        <span>Date de la séance</span>
+        <input type="date" id="trackDate">
+      </label>
       <label class="select-wrap">
         <span>Séance</span>
         <select id="trackSession"></select>
@@ -120,7 +131,32 @@
 
     <div id="trackContent"></div>
 
-    <p class="fine-print">Format conseillé : poids puis répétitions (ex. 20 et 10). Ton dernier perf et ton record s'affichent automatiquement.</p>
+    <p class="fine-print">Format conseillé : poids puis répétitions (ex. 20 et 10). Ton dernier perf et ton record s'affichent automatiquement. Change la date en haut pour enregistrer une séance d'un autre jour.</p>
+  </section>
+
+  <!-- ============ ONGLET HISTORIQUE ============ -->
+  <section class="view hidden" id="view-historique" data-view="historique">
+    <div class="view-head">
+      <p class="eyebrow">Récap long terme</p>
+      <h1 class="view-title">Historique</h1>
+      <p class="view-lead">Toutes tes séances passées, jour par jour. Touche une date marquée pour revoir ce que t'avais soulevé.</p>
+    </div>
+
+    <div class="stat-row" id="histStats"></div>
+
+    <div class="cal">
+      <div class="cal-head">
+        <button class="cal-nav" id="calPrev" type="button" aria-label="Mois précédent">‹</button>
+        <span class="cal-month" id="calMonth">—</span>
+        <button class="cal-nav" id="calNext" type="button" aria-label="Mois suivant">›</button>
+      </div>
+      <div class="cal-dow">
+        <span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <div id="calDetail"></div>
   </section>
 
 </main>
@@ -138,6 +174,10 @@
   <button class="tab" data-target="suivi" type="button">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16v2H4zM6 12h3v6H6zM10.5 8h3v10h-3zM15 4h3v14h-3z"/></svg>
     <span>Suivi</span>
+  </button>
+  <button class="tab" data-target="historique" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7zm12 7v10H5V9h14zM7 11h4v4H7z"/></svg>
+    <span>Historique</span>
   </button>
 </nav>
 
