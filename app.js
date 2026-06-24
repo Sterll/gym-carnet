@@ -243,10 +243,26 @@ function renderTrack() {
     if (!entries.length) {
       histWrap.innerHTML = `<span class="hist-empty">Aucune entrée. Note ta première charge après l'exo.</span>`;
     } else {
-      entries.slice(-6).reverse().forEach(e => {
+      const start = Math.max(0, entries.length - 6);
+      const idxs = [];
+      for (let i = entries.length - 1; i >= start; i--) idxs.push(i);
+      idxs.forEach(idx => {
+        const e = entries[idx];
         const isBest = rec && score(e) === score(rec) && e.w === rec.w;
         const chip = el("span", "hist-chip" + (isBest ? " best" : ""));
-        chip.innerHTML = `${e.w}×${e.r} <small>${shortOf(entryISO(e))}</small>`;
+        chip.innerHTML = `${e.w}×${e.r} <small>${shortOf(entryISO(e))}</small><i class="chip-del" aria-label="supprimer">✕</i>`;
+        chip.title = "Toucher pour supprimer";
+        chip.onclick = () => {
+          if (!confirm(`Supprimer l'entrée ${e.w}kg × ${e.r} du ${shortOf(entryISO(e))} ?`)) return;
+          const store = load();
+          if (store[ex.id]) {
+            store[ex.id].splice(idx, 1);
+            if (!store[ex.id].length) delete store[ex.id];
+            save(store);
+          }
+          renderTrack();
+          flashToast("Entrée supprimée");
+        };
         histWrap.appendChild(chip);
       });
     }

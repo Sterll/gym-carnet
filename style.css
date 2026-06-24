@@ -300,6 +300,13 @@ main{max-width:var(--maxw);margin:0 auto;padding:22px 18px 40px}
   border-radius:999px;padding:4px 10px;display:inline-flex;gap:6px;align-items:center;
 }
 .hist-chip small{color:var(--faint)}
+.hist-chip{cursor:pointer;transition:.15s;user-select:none}
+.hist-chip .chip-del{
+  font-style:normal;font-size:10px;color:var(--faint);margin-left:3px;padding-left:5px;
+  border-left:1px solid var(--line);font-weight:700;
+}
+.hist-chip:active{border-color:var(--warn);color:var(--warn)}
+.hist-chip:active .chip-del{color:var(--warn);border-left-color:var(--warn)}
 .hist-chip.best{border-color:rgba(214,255,61,.4);color:var(--accent)}
 .hist-empty{font-size:12.5px;color:var(--faint);margin-top:10px}
 
