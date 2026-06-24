@@ -441,6 +441,21 @@ body.guided-open{overflow:hidden}
 .g-last.muted{border-left-color:var(--faint)}
 .g-last b{color:var(--accent)}
 
+.g-warm{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:var(--radius-sm);padding:13px 14px;margin:16px 0 18px;
+}
+.g-warm-title{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--warn);display:block;margin-bottom:11px}
+.g-warm-sets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:9px}
+.g-warm-chip{
+  background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+  border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:700;font-family:inherit;cursor:pointer;transition:.14s;
+}
+.g-warm-chip:active{transform:scale(.96)}
+.g-warm-chip.done{background:var(--warn);color:#0B0B0C;border-color:var(--warn)}
+.g-warm-empty{font-size:13px;color:var(--muted);margin-bottom:9px;line-height:1.5}
+.g-warm-hint{font-size:11.5px;color:var(--faint);display:block}
+
 .g-sets{display:flex;flex-direction:column;gap:10px}
 .g-set{
   display:flex;align-items:center;gap:9px;

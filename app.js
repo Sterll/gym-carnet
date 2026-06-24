@@ -571,7 +571,7 @@ let guided = null; // { session, i, data:{exId:[{w,r}|null]}, saved }
 
 function startGuided(sessionId) {
   const session = sessionById(sessionId);
-  guided = { session, order: session.exercises.slice(), pos: 0, data: {}, saved: false };
+  guided = { session, order: session.exercises.slice(), pos: 0, data: {}, warm: {}, saved: false };
   $("#guided").hidden = false;
   document.body.classList.add("guided-open");
   renderGuided();
@@ -619,6 +619,27 @@ function renderGuidedExercise() {
   if (!guided.data[ex.id]) guided.data[ex.id] = new Array(ex.sets).fill(null);
   const sets = guided.data[ex.id];
 
+  // séries d'approche : seulement sur le 1er exo de la séance
+  const isFirst = ex.id === guided.session.exercises[0].id;
+  let warmHTML = "";
+  if (isFirst) {
+    if (!guided.warm[ex.id]) guided.warm[ex.id] = [];
+    const done = guided.warm[ex.id];
+    let warmSets = null;
+    if (last) {
+      const w1 = Math.max(1, Math.round(last.w * 0.4));
+      const w2 = Math.max(1, Math.round(last.w * 0.65));
+      warmSets = [{ w: w1, r: 10 }, { w: w2, r: 5 }];
+    }
+    warmHTML = `<div class="g-warm">
+      <span class="g-warm-title">🔥 Échauffement — séries d'approche</span>
+      ${warmSets
+        ? `<div class="g-warm-sets">${warmSets.map((s, i) => `<button class="g-warm-chip${done[i] ? " done" : ""}" data-i="${i}" type="button">${done[i] ? "✓ " : ""}~${s.w}kg × ${s.r}</button>`).join("")}</div>`
+        : `<p class="g-warm-empty">Première fois sur cet exo : fais 2 séries très légères pour sentir le mouvement avant d'attaquer tes vraies séries.</p>`}
+      <span class="g-warm-hint">Elles comptent pas dans ton suivi. Repos court entre (~45s).</span>
+    </div>`;
+  }
+
   let html = `<div class="g-ex">
     <span class="g-ex-target">${ex.sets} × ${ex.reps} reps · repos ${ex.rest}</span>
     <h2 class="g-ex-name">${esc(ex.name)}</h2>
@@ -626,6 +647,7 @@ function renderGuidedExercise() {
     ${last
       ? `<div class="g-last">Dernière fois : <b>${last.w}kg × ${last.r}</b> — fais au moins pareil, voire plus 💪</div>`
       : `<div class="g-last muted">Première fois : trouve un poids où tu finis tes reps proprement.</div>`}
+    ${warmHTML}
     <div class="g-sets">`;
   for (let k = 0; k < ex.sets; k++) {
     const d = sets[k];
@@ -650,6 +672,14 @@ function renderGuidedExercise() {
   busyBtn.onclick = machineBusy;
   busyBtn.disabled = guided.pos >= guided.order.length - 1;
   $("#gSkip").onclick = skipExercise;
+
+  $$(".g-warm-chip", $("#gBody")).forEach(btn => {
+    btn.onclick = () => {
+      const i = +btn.dataset.i;
+      guided.warm[ex.id][i] = !guided.warm[ex.id][i];
+      renderGuidedExercise();
+    };
+  });
 
   $$(".g-check", $("#gBody")).forEach(btn => {
     btn.onclick = () => {
