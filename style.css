@@ -514,6 +514,69 @@ body.guided-open{overflow:hidden}
 .g-finish-stats span{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;margin-top:5px;display:block}
 .g-finish-note{font-size:13.5px;color:var(--muted);max-width:34ch;margin:0 auto;line-height:1.6}
 
+/* ---------- SÉANCE GUIDÉE : nouveau flow "une série à la fois" ---------- */
+.g-body{display:flex;flex-direction:column;justify-content:center;align-items:center}
+.g-stage{width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;animation:fade .2s ease}
+.g-ex-head{margin-bottom:14px}
+.g-ex-head .g-ex-target{display:block;margin-bottom:6px}
+.g-ex-head .g-ex-name{margin:0}
+.g-ex-name.small{font-size:22px}
+.g-ex-last{display:block;font-size:13px;color:var(--muted);margin-top:9px}
+.g-ex-last b{color:var(--accent)}
+
+.g-dots{display:flex;gap:8px;justify-content:center;margin:6px 0 14px}
+.g-dot{width:11px;height:11px;border-radius:50%;background:var(--surface-2);border:1px solid var(--line);transition:.2s}
+.g-dot.done{background:var(--accent);border-color:var(--accent)}
+.g-dot.cur{border-color:var(--accent);box-shadow:0 0 0 3px rgba(214,255,61,.16)}
+
+.g-set-label{font-size:14px;color:var(--muted);margin-bottom:16px}
+.g-set-label b{font-family:'Anton',sans-serif;font-size:21px;color:var(--text);margin-right:3px}
+
+.g-input-row{display:flex;align-items:flex-start;gap:14px;justify-content:center;margin-bottom:22px}
+.g-field{display:flex;flex-direction:column;align-items:center;gap:6px}
+.g-field input{
+  width:120px;background:var(--surface);border:1px solid var(--line);border-radius:16px;color:var(--text);
+  padding:18px 8px;font-family:'Anton',sans-serif;font-size:38px;text-align:center;
+}
+.g-field input:focus{border-color:var(--accent);outline:none}
+.g-field label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700}
+.g-mult{font-family:'Anton',sans-serif;font-size:26px;color:var(--faint);margin-top:22px}
+
+.g-validate{
+  width:100%;background:var(--accent);color:#0B0B0C;border:none;border-radius:var(--radius);
+  padding:17px;font-family:'Anton',sans-serif;font-size:18px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;margin-bottom:14px;transition:.13s;
+}
+.g-validate:active{background:var(--accent-press);transform:scale(.99)}
+
+.g-warm{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:var(--radius-sm);padding:9px 12px;margin-bottom:14px;
+}
+.g-warm-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--warn);flex:0 0 auto;margin:0}
+.g-warm-sets{display:flex;gap:7px;flex-wrap:wrap;margin:0}
+.g-warm-chip{padding:6px 11px;font-size:12.5px}
+
+/* repos intégré */
+.g-stage-rest{padding-top:8px}
+.g-rest-cap{font-size:13px;color:var(--muted);margin:14px 0 4px}
+.g-rest-time{font-family:'Anton',sans-serif;font-size:74px;line-height:1;color:var(--accent);letter-spacing:1px}
+.g-rest-bar{width:100%;height:8px;background:var(--surface-2);border-radius:9px;overflow:hidden;margin:18px 0 20px}
+.g-rest-bar i{display:block;height:100%;background:var(--accent);border-radius:9px;transition:width 1s linear}
+.g-rest-actions{display:flex;gap:10px;width:100%}
+.g-rest-adj{flex:0 0 auto;background:var(--surface);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:14px 15px;font-weight:800;font-size:13px;font-family:inherit;cursor:pointer}
+.g-rest-adj:active{background:var(--surface-2)}
+.g-rest-skip{flex:1;background:var(--accent);color:#0B0B0C;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer}
+.g-rest-skip:active{background:var(--accent-press)}
+
+/* exercice terminé */
+.g-stage-done{padding-top:14px}
+.g-done-check{width:80px;height:80px;border-radius:50%;background:var(--accent);color:#0B0B0C;display:grid;place-items:center;font-size:44px;font-weight:800;margin:0 auto 14px}
+.g-done-sub{color:var(--muted);font-size:14px;margin:6px 0 12px}
+.g-redo{width:100%;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:12px;padding:12px;font-weight:700;font-size:13px;font-family:inherit;cursor:pointer}
+.g-redo:active{background:var(--surface)}
+
 /* ---------- TIMER DE REPOS (flottant) ---------- */
 .rest-timer{
   position:fixed;left:0;right:0;bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom));z-index:70;

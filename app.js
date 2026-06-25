@@ -571,17 +571,17 @@ let guided = null; // { session, i, data:{exId:[{w,r}|null]}, saved }
 
 function startGuided(sessionId) {
   const session = sessionById(sessionId);
-  guided = { session, order: session.exercises.slice(), pos: 0, data: {}, warm: {}, saved: false };
+  guided = { session, order: session.exercises.slice(), pos: 0, set: 0, resting: false, data: {}, warm: {}, saved: false, restTotal: 0, restLeft: 0, restInterval: null };
   $("#guided").hidden = false;
   document.body.classList.add("guided-open");
-  renderGuided();
+  enterExercise();
 }
 function closeGuided() {
+  stopGuidedRest();
   persistGuided();
   guided = null;
   $("#guided").hidden = true;
   document.body.classList.remove("guided-open");
-  stopRest();
   renderTrack();
 }
 function persistGuided() {
@@ -602,128 +602,193 @@ function persistGuided() {
   if (saved) save(store);
 }
 
+// (re)place le curseur sur la 1re série non validée de l'exo courant
+function enterExercise() {
+  const ex = guided.order[guided.pos];
+  if (!guided.data[ex.id]) guided.data[ex.id] = new Array(ex.sets).fill(null);
+  let s = guided.data[ex.id].findIndex(x => !x);
+  guided.set = s === -1 ? ex.sets : s;
+  guided.resting = false;
+  stopGuidedRest();
+  renderGuided();
+}
+
+function guidedDots(sets) {
+  return sets.map((x, i) => {
+    const cls = x ? "done" : (i === guided.set && !guided.resting ? "cur" : "");
+    return `<i class="g-dot ${cls}"></i>`;
+  }).join("");
+}
+
 function renderGuided() {
   const s = guided.session;
+  const ex = guided.order[guided.pos];
+  const sets = guided.data[ex.id];
   $("#gSessionName").textContent = s.name;
   $("#gExCount").textContent = `Exercice ${guided.pos + 1}/${guided.order.length}`;
-  $("#gBar").style.width = (guided.pos / guided.order.length * 100) + "%";
+  const frac = Math.min(guided.set, ex.sets) / ex.sets;
+  $("#gBar").style.width = ((guided.pos + frac) / guided.order.length * 100) + "%";
   $("#gPrev").hidden = false; $("#gNext").hidden = false; $("#gDone").hidden = true;
   $("#gPrev").disabled = guided.pos === 0;
   $("#gNext").textContent = guided.pos === guided.order.length - 1 ? "Terminer 💪" : "Suivant ›";
-  renderGuidedExercise();
+
+  if (guided.resting) renderResting(ex, sets);
+  else if (guided.set >= ex.sets) renderExoDone(ex, sets);
+  else renderSetInput(ex, sets);
 }
 
-function renderGuidedExercise() {
-  const ex = guided.order[guided.pos];
+// --- état : saisie d'une série ---
+function renderSetInput(ex, sets) {
   const last = (load()[ex.id] || []).slice(-1)[0];
-  if (!guided.data[ex.id]) guided.data[ex.id] = new Array(ex.sets).fill(null);
-  const sets = guided.data[ex.id];
+  const prevW = (sets[guided.set] && sets[guided.set].w) || (guided.set > 0 && sets[guided.set - 1] && sets[guided.set - 1].w) || (last && last.w) || "";
+  const prevR = (sets[guided.set] && sets[guided.set].r) || "";
 
-  // séries d'approche : seulement sur le 1er exo de la séance
-  const isFirst = ex.id === guided.session.exercises[0].id;
+  // échauffement compact : 1er exo seulement
   let warmHTML = "";
-  if (isFirst) {
+  if (ex.id === guided.session.exercises[0].id) {
     if (!guided.warm[ex.id]) guided.warm[ex.id] = [];
     const done = guided.warm[ex.id];
-    let warmSets = null;
     if (last) {
-      const w1 = Math.max(1, Math.round(last.w * 0.4));
-      const w2 = Math.max(1, Math.round(last.w * 0.65));
-      warmSets = [{ w: w1, r: 10 }, { w: w2, r: 5 }];
+      const w1 = Math.max(1, Math.round(last.w * 0.4)), w2 = Math.max(1, Math.round(last.w * 0.65));
+      const ws = [{ w: w1, r: 10 }, { w: w2, r: 5 }];
+      warmHTML = `<div class="g-warm">
+        <span class="g-warm-title">🔥 Approche</span>
+        <div class="g-warm-sets">${ws.map((s, i) => `<button class="g-warm-chip${done[i] ? " done" : ""}" data-i="${i}" type="button">${done[i] ? "✓ " : ""}~${s.w}×${s.r}</button>`).join("")}</div>
+      </div>`;
     }
-    warmHTML = `<div class="g-warm">
-      <span class="g-warm-title">🔥 Échauffement — séries d'approche</span>
-      ${warmSets
-        ? `<div class="g-warm-sets">${warmSets.map((s, i) => `<button class="g-warm-chip${done[i] ? " done" : ""}" data-i="${i}" type="button">${done[i] ? "✓ " : ""}~${s.w}kg × ${s.r}</button>`).join("")}</div>`
-        : `<p class="g-warm-empty">Première fois sur cet exo : fais 2 séries très légères pour sentir le mouvement avant d'attaquer tes vraies séries.</p>`}
-      <span class="g-warm-hint">Elles comptent pas dans ton suivi. Repos court entre (~45s).</span>
-    </div>`;
   }
 
-  let html = `<div class="g-ex">
-    <span class="g-ex-target">${ex.sets} × ${ex.reps} reps · repos ${ex.rest}</span>
-    <h2 class="g-ex-name">${esc(ex.name)}</h2>
-    ${ex.alt ? `<span class="g-ex-alt">${esc(ex.alt)}</span>` : ""}
-    ${last
-      ? `<div class="g-last">Dernière fois : <b>${last.w}kg × ${last.r}</b> — fais au moins pareil, voire plus 💪</div>`
-      : `<div class="g-last muted">Première fois : trouve un poids où tu finis tes reps proprement.</div>`}
+  $("#gBody").innerHTML = `<div class="g-stage">
+    <div class="g-ex-head">
+      <span class="g-ex-target">${ex.sets}×${ex.reps} · repos ${ex.rest}</span>
+      <h2 class="g-ex-name">${esc(ex.name)}</h2>
+      ${last ? `<span class="g-ex-last">Dernière fois <b>${last.w}kg × ${last.r}</b></span>` : `<span class="g-ex-last muted">${esc(ex.alt || "Première fois sur cet exo")}</span>`}
+    </div>
     ${warmHTML}
-    <div class="g-sets">`;
-  for (let k = 0; k < ex.sets; k++) {
-    const d = sets[k];
-    html += `<div class="g-set${d ? " done" : ""}">
-      <span class="g-set-n">${k + 1}</span>
-      <input class="g-w" type="number" inputmode="decimal" placeholder="kg" value="${d ? d.w : (last ? last.w : "")}">
-      <span class="g-x">×</span>
-      <input class="g-r" type="number" inputmode="numeric" placeholder="reps" value="${d ? d.r : ""}">
-      <button class="g-check" data-k="${k}" type="button">${d ? "✓" : "OK"}</button>
-    </div>`;
-  }
-  html += `</div>
+    <div class="g-dots">${guidedDots(sets)}</div>
+    <div class="g-set-label">Série <b>${guided.set + 1}</b> sur ${ex.sets}</div>
+    <div class="g-input-row">
+      <div class="g-field"><input class="g-w" type="number" inputmode="decimal" placeholder="0" value="${prevW}"><label>kg</label></div>
+      <span class="g-mult">×</span>
+      <div class="g-field"><input class="g-r" type="number" inputmode="numeric" placeholder="0" value="${prevR}"><label>reps</label></div>
+    </div>
+    <button class="g-validate" id="gValidate" type="button">✓ Valider la série</button>
     <div class="g-actions">
       <button class="g-busy" id="gBusy" type="button"><svg viewBox="0 0 24 24"><path d="M12 6V3L8 7l4 4V8a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5H5a7 7 0 0 0 7 7 7 7 0 0 0 7-7c0-3.87-3.13-7-7-7z"/></svg> Machine occupée</button>
       <button class="g-skip" id="gSkip" type="button">Passer l'exo ›</button>
     </div>
   </div>`;
-  $("#gBody").innerHTML = html;
-  $("#gBody").scrollTop = 0;
 
+  $("#gValidate").onclick = validateSet;
   const busyBtn = $("#gBusy");
   busyBtn.onclick = machineBusy;
   busyBtn.disabled = guided.pos >= guided.order.length - 1;
   $("#gSkip").onclick = skipExercise;
-
   $$(".g-warm-chip", $("#gBody")).forEach(btn => {
-    btn.onclick = () => {
-      const i = +btn.dataset.i;
-      guided.warm[ex.id][i] = !guided.warm[ex.id][i];
-      renderGuidedExercise();
-    };
+    btn.onclick = () => { guided.warm[ex.id][+btn.dataset.i] = !guided.warm[ex.id][+btn.dataset.i]; renderGuided(); };
   });
+}
 
-  $$(".g-check", $("#gBody")).forEach(btn => {
-    btn.onclick = () => {
-      const k = +btn.dataset.k;
-      const row = btn.closest(".g-set");
-      const w = parseFloat($(".g-w", row).value);
-      const r = parseInt($(".g-r", row).value, 10);
-      if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { $(".g-w", row).focus(); return; }
-      const already = !!guided.data[ex.id][k];
-      guided.data[ex.id][k] = { w, r };
-      renderGuidedExercise();
-      if (!already) startRest(ex.name, restSeconds(ex.rest)); // timer auto à la validation
-    };
-  });
+// --- état : repos ---
+function renderResting(ex, sets) {
+  $("#gBody").innerHTML = `<div class="g-stage g-stage-rest">
+    <h2 class="g-ex-name small">${esc(ex.name)}</h2>
+    <div class="g-dots">${guidedDots(sets)}</div>
+    <span class="g-rest-cap">Série ${guided.set + 1} validée ✓ — récupère</span>
+    <div class="g-rest-time" id="gRestTime">${fmtTime(Math.max(0, guided.restLeft))}</div>
+    <div class="g-rest-bar"><i id="gRestBar" style="width:${guided.restTotal ? guided.restLeft / guided.restTotal * 100 : 0}%"></i></div>
+    <div class="g-rest-actions">
+      <button class="g-rest-adj" id="gRestMinus" type="button">−15s</button>
+      <button class="g-rest-skip" id="gRestSkip" type="button">Passer le repos ›</button>
+      <button class="g-rest-adj" id="gRestPlus" type="button">+15s</button>
+    </div>
+  </div>`;
+  $("#gRestMinus").onclick = () => adjustGuidedRest(-15);
+  $("#gRestPlus").onclick = () => adjustGuidedRest(15);
+  $("#gRestSkip").onclick = skipGuidedRest;
+}
+
+// --- état : exercice terminé ---
+function renderExoDone(ex, sets) {
+  const isLast = guided.pos === guided.order.length - 1;
+  $("#gBody").innerHTML = `<div class="g-stage g-stage-done">
+    <div class="g-done-check">✓</div>
+    <h2 class="g-ex-name">${esc(ex.name)}</h2>
+    <p class="g-done-sub">Exercice plié — ${ex.sets} séries faites</p>
+    <div class="g-dots">${guidedDots(sets)}</div>
+    <button class="g-validate" id="gNextExo" type="button">${isLast ? "Terminer la séance 💪" : "Exercice suivant ›"}</button>
+    <button class="g-redo" id="gRedo" type="button">Refaire une série</button>
+  </div>`;
+  $("#gNextExo").onclick = guidedNext;
+  $("#gRedo").onclick = () => { guided.set = Math.max(0, ex.sets - 1); guided.data[ex.id][guided.set] = null; guided.resting = false; renderGuided(); };
+}
+
+function validateSet() {
+  const ex = guided.order[guided.pos];
+  const w = parseFloat($(".g-w").value);
+  const r = parseInt($(".g-r").value, 10);
+  if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { $(".g-w").focus(); return; }
+  guided.data[ex.id][guided.set] = { w, r };
+  if (guided.set >= ex.sets - 1) { guided.set = ex.sets; guided.resting = false; renderGuided(); }
+  else { guided.resting = true; startGuidedRest(restSeconds(ex.rest)); }
+}
+
+/* --- timer de repos intégré (séance guidée) --- */
+function startGuidedRest(seconds) {
+  stopGuidedRest();
+  guided.restTotal = seconds; guided.restLeft = seconds;
+  renderGuided();
+  guided.restInterval = setInterval(() => {
+    guided.restLeft -= 1;
+    if (guided.restLeft <= 0) {
+      stopGuidedRest();
+      navigator.vibrate?.([200, 100, 200, 100, 300]); beep();
+      endGuidedRest();
+    } else paintGuidedRest();
+  }, 1000);
+}
+function stopGuidedRest() { if (guided && guided.restInterval) { clearInterval(guided.restInterval); guided.restInterval = null; } }
+function paintGuidedRest() {
+  const t = $("#gRestTime"); if (t) t.textContent = fmtTime(Math.max(0, guided.restLeft));
+  const b = $("#gRestBar"); if (b) b.style.width = (guided.restTotal ? Math.max(0, guided.restLeft) / guided.restTotal * 100 : 0) + "%";
+}
+function endGuidedRest() { guided.resting = false; guided.set += 1; renderGuided(); }
+function skipGuidedRest() { stopGuidedRest(); endGuidedRest(); }
+function adjustGuidedRest(d) {
+  guided.restLeft = Math.max(1, guided.restLeft + d);
+  guided.restTotal = Math.max(guided.restTotal, guided.restLeft);
+  paintGuidedRest();
 }
 
 function guidedNext() {
   if (guided.pos === guided.order.length - 1) { finishGuided(); return; }
-  guided.pos++; renderGuided();
+  guided.pos++; enterExercise();
 }
-function guidedPrev() { if (guided.pos > 0) { guided.pos--; renderGuided(); } }
+function guidedPrev() { if (guided.pos > 0) { guided.pos--; enterExercise(); } }
 
 function skipExercise() {
   if (!confirm("Passer cet exercice ? Essaie de pas le zapper si tu peux 😏")) return;
   const ex = guided.order[guided.pos];
-  delete guided.data[ex.id]; // pas de données pour un exo zappé
+  delete guided.data[ex.id];
   guided.order.splice(guided.pos, 1);
-  stopRest();
+  stopGuidedRest();
   if (guided.pos >= guided.order.length) { finishGuided(); return; }
-  renderGuided();
+  enterExercise();
   flashToast("Exo passé");
 }
 
 function machineBusy() {
   if (guided.pos >= guided.order.length - 1) { flashToast("C'est déjà le dernier exo"); return; }
   const ex = guided.order[guided.pos];
-  guided.order.splice(guided.pos, 1);      // on retire l'exo courant
-  guided.order.splice(guided.pos + 1, 0, ex); // et on le remet juste après le prochain
-  stopRest();
-  renderGuided(); // pos ne bouge pas → pointe maintenant sur l'exo suivant
+  guided.order.splice(guided.pos, 1);
+  guided.order.splice(guided.pos + 1, 0, ex);
+  stopGuidedRest();
+  enterExercise(); // pos ne bouge pas → pointe sur l'exo suivant
   flashToast("Machine occupée — on y revient juste après 🔄");
 }
 
 function finishGuided() {
+  stopGuidedRest();
   persistGuided();
   const s = guided.session;
   let exDone = 0, setsDone = 0, volume = 0;
