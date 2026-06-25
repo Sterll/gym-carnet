@@ -1,5 +1,5 @@
 /* ============================================================
-   Carnet d'entraînement — logique
+   Carnet d'entraînement : logique
    Programme + planning éditable + suivi des charges + historique
    Stockage : localStorage (100% sur le téléphone)
    ============================================================ */
@@ -75,7 +75,7 @@ const MACRO_INFO = [
 ];
 const SUPPS = [
   { name: "Whey", use: "Atteindre tes protéines facilement. Le seul vraiment utile au début." },
-  { name: "Créatine", use: "3-5g/jour, tous les jours. +force, +volume — le plus prouvé scientifiquement." },
+  { name: "Créatine", use: "3-5g/jour, tous les jours. +force, +volume, le plus prouvé scientifiquement." },
   { name: "Oméga 3", use: "Bonus santé articulaire/cardio si tu manges peu de poisson." },
 ];
 
@@ -132,7 +132,7 @@ function renderWeekEdit() {
   schedule.forEach((sid, i) => {
     const row = el("div", "we-row");
     const opts = ['<option value="rest">Repos</option>']
-      .concat(PROGRAM.map(s => `<option value="${s.id}">${s.name} — ${s.focus}</option>`)).join("");
+      .concat(PROGRAM.map(s => `<option value="${s.id}">${s.name} · ${s.focus}</option>`)).join("");
     row.innerHTML = `<span class="we-day">${DAYS_LONG[i]}</span>
       <select class="we-select" data-i="${i}">${opts}</select>`;
     const sel = $(".we-select", row);
@@ -185,7 +185,7 @@ function renderSession() {
     card.appendChild(row);
   });
   const note = el("div", "session-note");
-  note.innerHTML = `<b>Note —</b><span>${esc(s.note)}</span>`;
+  note.innerHTML = `<b>Note :</b><span>${esc(s.note)}</span>`;
   card.appendChild(note);
   wrap.appendChild(card);
 }
@@ -206,7 +206,7 @@ let trackSession = PROGRAM[0].id;
 function fillTrackSelect() {
   const sel = $("#trackSession");
   sel.innerHTML = "";
-  PROGRAM.forEach(s => { const o = el("option"); o.value = s.id; o.textContent = `${s.name} — ${s.focus}`; sel.appendChild(o); });
+  PROGRAM.forEach(s => { const o = el("option"); o.value = s.id; o.textContent = `${s.name} · ${s.focus}`; sel.appendChild(o); });
   sel.value = trackSession;
   sel.onchange = () => { trackSession = sel.value; renderTrack(); };
   const dateInput = $("#trackDate");
@@ -330,7 +330,7 @@ function startRest(name, seconds) {
       clearInterval(restState.interval);
       navigator.vibrate?.([200, 100, 200, 100, 300]);
       beep();
-      $("#rtLabel").textContent = "Repos terminé 💪 — c'est reparti";
+      $("#rtLabel").textContent = "Repos terminé, c'est reparti 💪";
       $("#rtTime").textContent = "0:00";
       setTimeout(() => { if (restState && restState.left <= 0) stopRest(); }, 4000);
     }
@@ -541,7 +541,7 @@ function showDay(iso, items) {
 function exportData() {
   const data = load();
   const s = sessionById(trackSession);
-  let txt = `CARNET YANIS — ${s.name}\n\n`;
+  let txt = `CARNET YANIS · ${s.name}\n\n`;
   s.exercises.forEach(ex => {
     const entries = data[ex.id] || [];
     txt += `• ${ex.name} (${ex.sets}×${ex.reps})\n`;
@@ -694,7 +694,7 @@ function renderResting(ex, sets) {
   $("#gBody").innerHTML = `<div class="g-stage g-stage-rest">
     <h2 class="g-ex-name small">${esc(ex.name)}</h2>
     <div class="g-dots">${guidedDots(sets)}</div>
-    <span class="g-rest-cap">Série ${guided.set + 1} validée ✓ — récupère</span>
+    <span class="g-rest-cap">Série ${guided.set + 1} validée, récupère ✓</span>
     <div class="g-rest-time" id="gRestTime">${fmtTime(Math.max(0, guided.restLeft))}</div>
     <div class="g-rest-bar"><i id="gRestBar" style="width:${guided.restTotal ? guided.restLeft / guided.restTotal * 100 : 0}%"></i></div>
     <div class="g-rest-actions">
@@ -714,7 +714,7 @@ function renderExoDone(ex, sets) {
   $("#gBody").innerHTML = `<div class="g-stage g-stage-done">
     <div class="g-done-check">✓</div>
     <h2 class="g-ex-name">${esc(ex.name)}</h2>
-    <p class="g-done-sub">Exercice plié — ${ex.sets} séries faites</p>
+    <p class="g-done-sub">Exercice plié, ${ex.sets} séries faites</p>
     <div class="g-dots">${guidedDots(sets)}</div>
     <button class="g-validate" id="gNextExo" type="button">${isLast ? "Terminer la séance 💪" : "Exercice suivant ›"}</button>
     <button class="g-redo" id="gRedo" type="button">Refaire une série</button>
@@ -784,7 +784,7 @@ function machineBusy() {
   guided.order.splice(guided.pos + 1, 0, ex);
   stopGuidedRest();
   enterExercise(); // pos ne bouge pas → pointe sur l'exo suivant
-  flashToast("Machine occupée — on y revient juste après 🔄");
+  flashToast("Machine occupée, on y revient juste après 🔄");
 }
 
 function finishGuided() {
@@ -801,7 +801,7 @@ function finishGuided() {
   $("#gBody").innerHTML = `<div class="g-finish">
     <div class="g-finish-badge">💪</div>
     <h2 class="g-finish-title">Séance terminée</h2>
-    <p class="g-finish-sub">${s.name} — bien joué Yanis</p>
+    <p class="g-finish-sub">${s.name}, bien joué Yanis</p>
     <div class="g-finish-stats">
       <div><b>${exDone}</b><span>exercices</span></div>
       <div><b>${setsDone}</b><span>séries</span></div>
