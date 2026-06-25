@@ -358,6 +358,17 @@ main{max-width:var(--maxw);margin:0 auto;padding:22px 18px 40px}
 .cd-load small{font-family:'Inter';font-size:11px;color:var(--muted);font-weight:600;margin-left:1px}
 .cal-detail-empty{font-size:13px;color:var(--faint);text-align:center;padding:24px 12px;line-height:1.6;border:1px dashed var(--line);border-radius:var(--radius)}
 
+/* ---------- TABLEAU DES RECORDS ---------- */
+.rec-group{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
+.rec-head{font-family:'Anton',sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);padding:11px 14px;border-bottom:1px solid var(--line-soft);background:var(--surface-2)}
+.rec-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+.rec-row:last-child{border-bottom:none}
+.rec-ex{font-size:13.5px;font-weight:500}
+.rec-pr{font-family:'Anton',sans-serif;font-size:16px;color:var(--text);white-space:nowrap}
+.rec-pr small{font-family:'Inter';font-size:10px;color:var(--muted);font-weight:600}
+.rec-pr em{font-family:'Inter';font-style:normal;font-size:10.5px;color:var(--faint);font-weight:600;margin-left:4px}
+.rec-row.empty .rec-pr{font-family:'Inter';font-size:12px;color:var(--faint);font-weight:600}
+
 /* ---------- BOUTON REPOS (dans le suivi) ---------- */
 .track-name .track-target{margin-left:7px}
 .track-rest{
@@ -425,7 +436,9 @@ body.guided-open{overflow:hidden}
 }
 .g-head{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
 .g-session{font-family:'Anton',sans-serif;font-size:24px;text-transform:uppercase;letter-spacing:.4px;line-height:1}
+.g-head-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}
 .g-count{font-size:12px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.g-clock{font-size:12px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
 .g-bar{height:5px;background:var(--surface-2);border-radius:9px;overflow:hidden}
 .g-bar i{display:block;height:100%;background:var(--accent);border-radius:9px;width:0;transition:width .3s ease}
 
@@ -507,7 +520,8 @@ body.guided-open{overflow:hidden}
 .g-finish{text-align:center;padding:30px 10px;animation:fade .4s ease}
 .g-finish-badge{font-size:60px;line-height:1;margin-bottom:8px}
 .g-finish-title{font-family:'Anton',sans-serif;font-weight:400;font-size:40px;text-transform:uppercase;line-height:1}
-.g-finish-sub{color:var(--muted);font-size:14px;margin:6px 0 24px}
+.g-finish-sub{color:var(--muted);font-size:14px;margin:6px 0 12px}
+.g-finish-time{display:inline-block;font-size:13px;font-weight:700;color:var(--accent);border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin-bottom:20px}
 .g-finish-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
 .g-finish-stats div{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 8px}
 .g-finish-stats b{font-family:'Anton',sans-serif;font-weight:400;font-size:30px;color:var(--accent);display:block;line-height:1}

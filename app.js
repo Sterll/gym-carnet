@@ -506,6 +506,30 @@ function renderHistory() {
 
   fillProgSelect();
   renderProgression();
+  renderRecords();
+}
+
+// tableau de tous les records, groupé par séance
+function renderRecords() {
+  const data = load();
+  const wrap = $("#recordsList");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  PROGRAM.forEach(s => {
+    const group = el("div", "rec-group");
+    let rows = "";
+    s.exercises.forEach(ex => {
+      const entries = data[ex.id] || [];
+      if (entries.length) {
+        const r = best(entries);
+        rows += `<div class="rec-row"><span class="rec-ex">${esc(ex.name)}</span><span class="rec-pr">${r.w}<small>kg</small> × ${r.r} <em>${shortOf(entryISO(r))}</em></span></div>`;
+      } else {
+        rows += `<div class="rec-row empty"><span class="rec-ex">${esc(ex.name)}</span><span class="rec-pr">pas encore</span></div>`;
+      }
+    });
+    group.innerHTML = `<div class="rec-head">${s.name}</div>${rows}`;
+    wrap.appendChild(group);
+  });
 }
 
 function showDay(iso, items) {
@@ -513,11 +537,14 @@ function showDay(iso, items) {
   const p = iso.split("-");
   const dt = new Date(iso + "T00:00:00");
   const dayName = DAYS_LONG[(dt.getDay() + 6) % 7];
+  const durStore = loadDur();
+  const durs = sessions.map(s => durStore[`${iso}_${s.id}`]).filter(Boolean);
+  const durTxt = durs.length ? ` · ⏱ ${fmtDur(durs.reduce((a, b) => a + b, 0))}` : "";
   const box = $("#calDetail");
   box.innerHTML = "";
   const head = el("div", "cd-head");
   head.innerHTML = `<div><span class="cd-date">${dayName} ${p[2]} ${MONTHS[+p[1] - 1].toLowerCase()}</span>
-    <span class="cd-sess">${sessions.map(s => s.name).join(" + ")}</span></div>
+    <span class="cd-sess">${sessions.map(s => s.name).join(" + ")}${durTxt}</span></div>
     <span class="cd-count">${items.length} exo${items.length > 1 ? "s" : ""}</span>`;
   box.appendChild(head);
   // groupé par séance
@@ -569,15 +596,31 @@ function flashToast(msg) {
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 let guided = null; // { session, i, data:{exId:[{w,r}|null]}, saved }
 
+const DUR_KEY = "carnet_yanis_dur_v1";
+function loadDur() { try { return JSON.parse(localStorage.getItem(DUR_KEY)) || {}; } catch { return {}; } }
+function saveDur(d) { localStorage.setItem(DUR_KEY, JSON.stringify(d)); }
+function fmtDur(sec) { const m = Math.round(sec / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${pad(m % 60)}`; }
+
+let sessionClock = null;
+function paintSessionClock() {
+  if (!guided) return;
+  const e = document.getElementById("gClock");
+  if (e) e.textContent = "⏱ " + fmtTime(Math.round((Date.now() - guided.startTs) / 1000));
+}
+function startSessionClock() { stopSessionClock(); paintSessionClock(); sessionClock = setInterval(paintSessionClock, 1000); }
+function stopSessionClock() { if (sessionClock) { clearInterval(sessionClock); sessionClock = null; } }
+
 function startGuided(sessionId) {
   const session = sessionById(sessionId);
-  guided = { session, order: session.exercises.slice(), pos: 0, set: 0, resting: false, data: {}, warm: {}, saved: false, restTotal: 0, restLeft: 0, restInterval: null };
+  guided = { session, order: session.exercises.slice(), pos: 0, set: 0, resting: false, data: {}, warm: {}, saved: false, restTotal: 0, restLeft: 0, restInterval: null, startTs: Date.now() };
   $("#guided").hidden = false;
   document.body.classList.add("guided-open");
+  startSessionClock();
   enterExercise();
 }
 function closeGuided() {
   stopGuidedRest();
+  stopSessionClock();
   persistGuided();
   guided = null;
   $("#guided").hidden = true;
@@ -599,7 +642,12 @@ function persistGuided() {
     store[exId].sort((a, b) => entryISO(a).localeCompare(entryISO(b)));
     saved = true;
   });
-  if (saved) save(store);
+  if (saved) {
+    save(store);
+    const dur = loadDur();
+    dur[`${iso}_${guided.session.id}`] = Math.round((Date.now() - guided.startTs) / 1000);
+    saveDur(dur);
+  }
 }
 
 // (re)place le curseur sur la 1re série non validée de l'exo courant
@@ -789,8 +837,10 @@ function machineBusy() {
 
 function finishGuided() {
   stopGuidedRest();
+  stopSessionClock();
   persistGuided();
   const s = guided.session;
+  const durSec = Math.round((Date.now() - guided.startTs) / 1000);
   let exDone = 0, setsDone = 0, volume = 0;
   Object.keys(guided.data).forEach(exId => {
     const done = guided.data[exId].filter(x => x && x.w > 0 && x.r > 0);
@@ -802,6 +852,7 @@ function finishGuided() {
     <div class="g-finish-badge">💪</div>
     <h2 class="g-finish-title">Séance terminée</h2>
     <p class="g-finish-sub">${s.name}, bien joué Yanis</p>
+    <div class="g-finish-time">⏱ Bouclée en ${fmtDur(durSec)}</div>
     <div class="g-finish-stats">
       <div><b>${exDone}</b><span>exercices</span></div>
       <div><b>${setsDone}</b><span>séries</span></div>
