@@ -612,15 +612,17 @@ function stopSessionClock() { if (sessionClock) { clearInterval(sessionClock); s
 
 function startGuided(sessionId) {
   const session = sessionById(sessionId);
-  guided = { session, order: session.exercises.slice(), pos: 0, set: 0, resting: false, data: {}, warm: {}, saved: false, restTotal: 0, restLeft: 0, restInterval: null, startTs: Date.now() };
+  guided = { session, order: session.exercises.slice(), pos: 0, set: 0, resting: false, data: {}, warm: {}, saved: false, restTotal: 0, restEndTs: 0, restInterval: null, startTs: Date.now() };
   $("#guided").hidden = false;
   document.body.classList.add("guided-open");
   startSessionClock();
+  acquireWakeLock();
   enterExercise();
 }
 function closeGuided() {
   stopGuidedRest();
   stopSessionClock();
+  releaseWakeLock();
   persistGuided();
   guided = null;
   $("#guided").hidden = true;
@@ -743,8 +745,8 @@ function renderResting(ex, sets) {
     <h2 class="g-ex-name small">${esc(ex.name)}</h2>
     <div class="g-dots">${guidedDots(sets)}</div>
     <span class="g-rest-cap">Série ${guided.set + 1} validée, récupère ✓</span>
-    <div class="g-rest-time" id="gRestTime">${fmtTime(Math.max(0, guided.restLeft))}</div>
-    <div class="g-rest-bar"><i id="gRestBar" style="width:${guided.restTotal ? guided.restLeft / guided.restTotal * 100 : 0}%"></i></div>
+    <div class="g-rest-time" id="gRestTime">${fmtTime(restRemaining())}</div>
+    <div class="g-rest-bar"><i id="gRestBar" style="width:${guided.restTotal ? restRemaining() / guided.restTotal * 100 : 0}%"></i></div>
     <div class="g-rest-actions">
       <button class="g-rest-adj" id="gRestMinus" type="button">−15s</button>
       <button class="g-rest-skip" id="gRestSkip" type="button">Passer le repos ›</button>
@@ -777,36 +779,74 @@ function validateSet() {
   const r = parseInt($(".g-r").value, 10);
   if (isNaN(w) || isNaN(r) || w <= 0 || r <= 0) { $(".g-w").focus(); return; }
   guided.data[ex.id][guided.set] = { w, r };
+  maybeAskNotif();
   if (guided.set >= ex.sets - 1) { guided.set = ex.sets; guided.resting = false; renderGuided(); }
   else { guided.resting = true; startGuidedRest(restSeconds(ex.rest)); }
 }
 
 /* --- timer de repos intégré (séance guidée) --- */
+/* Basé sur l'heure réelle (restEndTs) : reste juste même si l'app gèle / se met en veille. */
+function restRemaining() { return guided ? Math.max(0, Math.round((guided.restEndTs - Date.now()) / 1000)) : 0; }
 function startGuidedRest(seconds) {
   stopGuidedRest();
-  guided.restTotal = seconds; guided.restLeft = seconds;
+  guided.restTotal = seconds;
+  guided.restEndTs = Date.now() + seconds * 1000;
   renderGuided();
-  guided.restInterval = setInterval(() => {
-    guided.restLeft -= 1;
-    if (guided.restLeft <= 0) {
-      stopGuidedRest();
-      navigator.vibrate?.([200, 100, 200, 100, 300]); beep();
-      endGuidedRest();
-    } else paintGuidedRest();
-  }, 1000);
+  guided.restInterval = setInterval(tickGuidedRest, 500);
+}
+function tickGuidedRest() {
+  if (!guided || !guided.resting) return;
+  if (restRemaining() <= 0) finishRestNow();
+  else paintGuidedRest();
+}
+function finishRestNow() {
+  stopGuidedRest();
+  navigator.vibrate?.([200, 100, 200, 100, 300]); beep();
+  if (document.hidden) notifyRestDone();
+  endGuidedRest();
 }
 function stopGuidedRest() { if (guided && guided.restInterval) { clearInterval(guided.restInterval); guided.restInterval = null; } }
 function paintGuidedRest() {
-  const t = $("#gRestTime"); if (t) t.textContent = fmtTime(Math.max(0, guided.restLeft));
-  const b = $("#gRestBar"); if (b) b.style.width = (guided.restTotal ? Math.max(0, guided.restLeft) / guided.restTotal * 100 : 0) + "%";
+  const left = restRemaining();
+  const t = $("#gRestTime"); if (t) t.textContent = fmtTime(left);
+  const b = $("#gRestBar"); if (b) b.style.width = (guided.restTotal ? left / guided.restTotal * 100 : 0) + "%";
 }
 function endGuidedRest() { guided.resting = false; guided.set += 1; renderGuided(); }
 function skipGuidedRest() { stopGuidedRest(); endGuidedRest(); }
 function adjustGuidedRest(d) {
-  guided.restLeft = Math.max(1, guided.restLeft + d);
-  guided.restTotal = Math.max(guided.restTotal, guided.restLeft);
+  guided.restEndTs += d * 1000;
+  if (guided.restEndTs < Date.now() + 1000) guided.restEndTs = Date.now() + 1000;
+  guided.restTotal = Math.max(guided.restTotal, restRemaining());
   paintGuidedRest();
 }
+
+/* --- garder l'écran allumé + resync au retour d'arrière-plan / veille --- */
+let wakeLock = null;
+async function acquireWakeLock() {
+  try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch { }
+}
+function releaseWakeLock() { try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch { } }
+function maybeAskNotif() {
+  try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch { }
+}
+async function notifyRestDone() {
+  try {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    const opts = { body: "C'est reparti pour la série suivante.", tag: "rest-done", icon: "icons/icon-192.png", vibrate: [200, 100, 200] };
+    if (reg && reg.showNotification) reg.showNotification("Repos terminé 💪", opts);
+    else new Notification("Repos terminé 💪", opts);
+  } catch { }
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !guided) return;
+  if (!wakeLock) acquireWakeLock();           // le wake lock saute en arrière-plan, on le reprend
+  if (guided.resting) {                         // resynchronise le repos
+    if (restRemaining() <= 0) finishRestNow();
+    else paintGuidedRest();
+  }
+  paintSessionClock();
+});
 
 function guidedNext() {
   if (guided.pos === guided.order.length - 1) { finishGuided(); return; }
